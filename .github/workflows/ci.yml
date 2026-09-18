@@ -40,6 +40,10 @@ jobs:
       - name: TypeScript 7, lint, format, tests, build and package smoke
         run: bun run check
 
+      - name: Git dependency install smoke without Bun
+        if: matrix.node == '24'
+        run: bun run test:git-install
+
       - name: Produce installable package
         if: matrix.node == '24'
         run: bun pm pack --filename opencode-jev-router.tgz
