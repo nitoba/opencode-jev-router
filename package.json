@@ -1,6 +1,6 @@
 {
   "name": "opencode-jev-router",
-  "version": "0.1.0-alpha.4",
+  "version": "0.1.0-alpha.5",
   "description": "Jev-powered tool routing for OpenCode 2 using @nitoba/questions.",
   "keywords": [
     "agent",
@@ -55,7 +55,8 @@
   "dependencies": {
     "@nitoba/questions": "0.1.0-rc.3",
     "@opencode/plugin": "2.0.5",
-    "zod": "4.6.5"
+    "zod": "4.6.5",
+    "@ai-sdk/gateway": "4.0.85"
   },
   "devDependencies": {
     "@types/bun": "1.4.2",

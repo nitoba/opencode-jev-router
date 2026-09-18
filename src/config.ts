@@ -7,8 +7,9 @@ const modelOptions = z.record(z.string().min(1), z.record(z.string().min(1), z.u
 const optionsSchema = z
   .object({
     mode: z.enum(["observe", "shortlist", "strict"]).default("shortlist"),
-    apiKeyEnv: z.string().min(1).default("TYPESAFE_API_KEY"),
-    model: z.string().min(1).default("jev-latest"),
+    provider: z.enum(["typesafe", "vercel"]).default("typesafe"),
+    apiKeyEnv: z.string().min(1).optional(),
+    model: z.string().min(1).optional(),
     baseURL: z.string().url().optional(),
     timeout: z.union([z.string().min(1), z.number().int().positive()]).default("2 seconds"),
     retry: z.union([z.literal(false), z.number().int().min(0).max(10)]).default(false),
@@ -30,12 +31,38 @@ const optionsSchema = z
         message: "softThreshold must be less than or equal to hardThreshold",
       });
     }
+
+    if (!value.baseURL) return;
+
+    const url = new URL(value.baseURL);
+    if (value.provider === "typesafe" && url.hostname === "ai-gateway.vercel.sh") {
+      context.addIssue({
+        code: "custom",
+        path: ["baseURL"],
+        message:
+          'Vercel AI Gateway is not a System One endpoint. Use provider: "vercel" instead of "typesafe".',
+      });
+    }
+
+    if (
+      value.provider === "vercel" &&
+      url.hostname === "ai-gateway.vercel.sh" &&
+      /^\/v1\/?$/.test(url.pathname)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["baseURL"],
+        message:
+          'The Vercel Jev provider uses the Evaluation V4 endpoint, not the OpenAI-compatible /v1 endpoint. Omit baseURL or use "https://ai-gateway.vercel.sh/v4/ai".',
+      });
+    }
   });
 
 export type PluginOptions = z.input<typeof optionsSchema>;
 
 export const DEFAULT_CONFIG = Object.freeze({
   mode: "shortlist",
+  provider: "typesafe",
   apiKeyEnv: "TYPESAFE_API_KEY",
   model: "jev-latest",
   timeout: "2 seconds",
@@ -52,10 +79,16 @@ export const DEFAULT_CONFIG = Object.freeze({
 
 export function parseConfig(input: unknown): RouterConfig {
   const parsed = optionsSchema.parse(input ?? {});
+  const apiKeyEnv =
+    parsed.apiKeyEnv ?? (parsed.provider === "vercel" ? "AI_GATEWAY_API_KEY" : "TYPESAFE_API_KEY");
+  const model =
+    parsed.model ?? (parsed.provider === "vercel" ? "typesafe-ai/jev" : "jev-latest");
+
   return {
     mode: parsed.mode,
-    apiKeyEnv: parsed.apiKeyEnv,
-    model: parsed.model,
+    provider: parsed.provider,
+    apiKeyEnv,
+    model,
     ...(parsed.baseURL === undefined ? {} : { baseURL: parsed.baseURL }),
     timeout: parsed.timeout,
     retry: parsed.retry,

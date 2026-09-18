@@ -1,8 +1,8 @@
 import { Plugin } from "@opencode/plugin";
-import { Duration, TypeSafe } from "@nitoba/questions";
 import { parseConfig } from "./config.ts";
 import { createLogger, errorMessage } from "./logger.ts";
 import { createRoutingPlan } from "./policy.ts";
+import { createDecisionModel } from "./provider.ts";
 import { createJevRouter, RouterCapacityError } from "./router.ts";
 import { buildRouterState } from "./state.ts";
 import { clearTools, keepOnlyTools, mergeModelOptions } from "./tools.ts";
@@ -41,8 +41,16 @@ export default Plugin.define({
 
   async setup(ctx) {
     const config = parseConfig(ctx.options);
-    const logger = createLogger(config.debug);
+    const logger = createLogger(config.debug, ctx.location.directory);
     const apiKey = readEnvironment(config.apiKeyEnv);
+
+    logger.event("plugin.loaded", {
+      provider: config.provider,
+      model: config.model,
+      mode: config.mode,
+      apiKeyEnv: config.apiKeyEnv,
+      ...(logger.file === undefined ? {} : { logFile: logger.file }),
+    });
 
     if (!apiKey) {
       logger.warnOnce(
@@ -52,13 +60,7 @@ export default Plugin.define({
       return;
     }
 
-    const model = TypeSafe.create({
-      apiKey,
-      model: config.model,
-      ...(config.baseURL === undefined ? {} : { baseURL: config.baseURL }),
-      timeout: Duration.parse(config.timeout),
-      retry: config.retry,
-    });
+    const model = createDecisionModel(config, apiKey);
     const router = createJevRouter(model, config);
 
     const registration = await ctx.session.hook("context", async (event) => {
@@ -70,6 +72,13 @@ export default Plugin.define({
 
       const tools = event.tools satisfies ToolCatalog;
       const state = buildRouterState(event.messages);
+
+      logger.event("jev.request.started", {
+        sessionID: event.sessionID,
+        catalogSize,
+        provider: config.provider,
+        model: config.model,
+      });
 
       try {
         const evaluation = await router.evaluate(state, tools);
@@ -93,6 +102,13 @@ export default Plugin.define({
             ? {}
             : { selectedFamily: evaluation.selectedFamily }),
         };
+        logger.event("jev.request.completed", {
+          sessionID: event.sessionID,
+          latencyMs: evaluation.latencyMs,
+          calls: evaluation.calls,
+          confidence: evaluation.nextTool.confidence,
+          doneProbability: evaluation.done.probability,
+        });
         logger.debug(trace);
 
         if (config.mode === "observe" || plan.kind === "fallback") return;
@@ -103,20 +119,34 @@ export default Plugin.define({
             type: "text",
             text: "No further tool call is needed for this step. Answer the user from the completed work and available results.",
           });
+          logger.event("router.applied", {
+            sessionID: event.sessionID,
+            action: "respond",
+          });
           return;
         }
 
         keepOnlyTools(event.tools, plan.tools);
         mergeModelOptions(event.options, config.modelOptions[event.model.providerID]);
+        logger.event("router.applied", {
+          sessionID: event.sessionID,
+          action: "tools",
+          exposedTools: plan.tools,
+        });
       } catch (error) {
         if (error instanceof RouterCapacityError) {
           logger.debug(routingTrace(event, config.mode, catalogSize, "catalog-too-large"));
           return;
         }
 
+        const message = errorMessage(error);
+        logger.event("jev.request.failed", {
+          sessionID: event.sessionID,
+          error: message,
+        });
         logger.warnOnce(
-          `routing:${errorMessage(error)}`,
-          `Jev routing failed; falling back to OpenCode's normal tool selection. ${errorMessage(error)}`,
+          `routing:${message}`,
+          `Jev routing failed; falling back to OpenCode's normal tool selection. ${message}`,
         );
       }
     });

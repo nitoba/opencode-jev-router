@@ -105,10 +105,18 @@ If it prints `1.x`, install OpenCode 2 before using this plugin.
 
 ## Install
 
-Set the TypeSafe API key in the environment:
+Choose the decision provider first.
+
+### Direct TypeSafe
 
 ```sh
 export TYPESAFE_API_KEY="..."
+```
+
+### Vercel AI Gateway
+
+```sh
+export AI_GATEWAY_API_KEY="..."
 ```
 
 Install the plugin:
@@ -119,58 +127,91 @@ opencode plugin add github:nitoba/opencode-jev-router
 
 ## Configuration
 
-A practical starting point:
+OpenCode 2 uses `plugins` and the `{ package, options }` form.
+
+### TypeSafe / System One
 
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": [
-    [
-      "github:nitoba/opencode-jev-router",
-      {
-        "mode": "shortlist",
-
-        "hardThreshold": 0.8,
-        "softThreshold": 0.55,
-        "doneThreshold": 0.7,
-        "topK": 3,
-
+  "plugins": [
+    {
+      "package": "github:nitoba/opencode-jev-router",
+      "options": {
+        "provider": "typesafe",
+        "apiKeyEnv": "TYPESAFE_API_KEY",
         "model": "jev-latest",
-        "timeout": "2 seconds",
-        "retry": false,
-
-        "modelOptions": {
-          "openai": {
-            "reasoningEffort": "low",
-          },
-        },
-      },
-    ],
-  ],
+        "mode": "shortlist",
+        "debug": true
+      }
+    }
+  ]
 }
 ```
 
+### Vercel AI Gateway / Jev
+
+The Vercel integration uses the Gateway Evaluation V4 protocol, not the OpenAI-compatible `/v1`
+route.
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": [
+    {
+      "package": "github:nitoba/opencode-jev-router",
+      "options": {
+        "provider": "vercel",
+        "apiKeyEnv": "AI_GATEWAY_API_KEY",
+        "baseURL": "https://ai-gateway.vercel.sh/v4/ai",
+        "model": "typesafe-ai/jev",
+        "mode": "observe",
+        "debug": true
+      }
+    }
+  ]
+}
+```
+
+For Vercel, `baseURL` and `model` can be omitted; those values are the defaults.
+
+`apiKeyEnv` is the name of an environment variable, never the API key itself.
+
+### Debugging
+
+With `debug: true`, the plugin writes JSON Lines to:
+
+```text
+<project>/.opencode/opencode-jev-router.log
+```
+
+A healthy run contains `plugin.loaded`, then `jev.request.started`, followed by
+`jev.request.completed` or `jev.request.failed`.
+
+```sh
+tail -f .opencode/opencode-jev-router.log
+```
+
+The debug log does not include the API key, raw prompts, complete tool arguments, or raw tool
+results.
+
 ### Options
 
-| Option                    | Default              | Meaning                                                                  |
-| ------------------------- | -------------------- | ------------------------------------------------------------------------ |
-| `mode`                    | `"shortlist"`        | `observe`, `shortlist`, or `strict`                                      |
-| `apiKeyEnv`               | `"TYPESAFE_API_KEY"` | Environment variable containing the TypeSafe key                         |
-| `model`                   | `"jev-latest"`       | TypeSafe System One model                                                |
-| `baseURL`                 | TypeSafe default     | Optional compatible TypeSafe/System One base URL                         |
-| `timeout`                 | `"2 seconds"`        | Total Questions/TypeSafe request budget                                  |
-| `retry`                   | `false`              | HTTP retries; `0..10` means additional retry count policy                |
-| `hardThreshold`           | `0.8`                | At or above this confidence, expose only the selected tool               |
-| `softThreshold`           | `0.55`               | At or above this confidence, expose the top-K tools                      |
-| `doneThreshold`           | `0.7`                | Independent probability required before removing all tools               |
-| `topK`                    | `3`                  | Shortlist size in the medium-confidence band                             |
-| `minTools`                | `2`                  | Skip Jev when the catalog is already smaller than this                   |
-| `maxToolDescriptionChars` | `900`                | Bound the description/schema summary sent per tool                       |
-| `debug`                   | `false`              | Emit routing metadata without prompts, args, results, or credentials     |
-| `modelOptions`            | `{}`                 | Provider-ID keyed OpenCode options applied only after successful routing |
-
-`softThreshold` must be less than or equal to `hardThreshold`. Unknown configuration keys are
-rejected so typos do not silently change routing behavior.
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `provider` | `"typesafe"` | `typesafe` for System One or `vercel` for Vercel Evaluation V4 |
+| `apiKeyEnv` | provider-specific | TypeSafe: `TYPESAFE_API_KEY`; Vercel: `AI_GATEWAY_API_KEY` |
+| `model` | provider-specific | TypeSafe: `jev-latest`; Vercel: `typesafe-ai/jev` |
+| `baseURL` | provider default | Custom endpoint using the selected provider protocol |
+| `mode` | `"shortlist"` | `observe`, `shortlist`, or `strict` |
+| `timeout` | `"2 seconds"` | Total Questions/provider request budget |
+| `retry` | `false` | HTTP retry policy |
+| `hardThreshold` | `0.8` | Expose only the selected tool at or above this confidence |
+| `softThreshold` | `0.55` | Expose the top-K tools at or above this confidence |
+| `doneThreshold` | `0.7` | Evidence required before removing all tools |
+| `topK` | `3` | Medium-confidence shortlist size |
+| `minTools` | `2` | Skip Jev when the catalog is already smaller |
+| `debug` | `false` | Write sanitized routing events to the project debug log |
 
 ## Modes
 
