@@ -142,10 +142,10 @@ OpenCode 2 uses `plugins` and the `{ package, options }` form.
         "apiKeyEnv": "TYPESAFE_API_KEY",
         "model": "jev-latest",
         "mode": "shortlist",
-        "debug": true
-      }
-    }
-  ]
+        "debug": true,
+      },
+    },
+  ],
 }
 ```
 
@@ -166,10 +166,10 @@ route.
         "baseURL": "https://ai-gateway.vercel.sh/v4/ai",
         "model": "typesafe-ai/jev",
         "mode": "observe",
-        "debug": true
-      }
-    }
-  ]
+        "debug": true,
+      },
+    },
+  ],
 }
 ```
 
@@ -197,21 +197,21 @@ results.
 
 ### Options
 
-| Option | Default | Meaning |
-| --- | --- | --- |
-| `provider` | `"typesafe"` | `typesafe` for System One or `vercel` for Vercel Evaluation V4 |
-| `apiKeyEnv` | provider-specific | TypeSafe: `TYPESAFE_API_KEY`; Vercel: `AI_GATEWAY_API_KEY` |
-| `model` | provider-specific | TypeSafe: `jev-latest`; Vercel: `typesafe-ai/jev` |
-| `baseURL` | provider default | Custom endpoint using the selected provider protocol |
-| `mode` | `"shortlist"` | `observe`, `shortlist`, or `strict` |
-| `timeout` | `"2 seconds"` | Total Questions/provider request budget |
-| `retry` | `false` | HTTP retry policy |
-| `hardThreshold` | `0.8` | Expose only the selected tool at or above this confidence |
-| `softThreshold` | `0.55` | Expose the top-K tools at or above this confidence |
-| `doneThreshold` | `0.7` | Evidence required before removing all tools |
-| `topK` | `3` | Medium-confidence shortlist size |
-| `minTools` | `2` | Skip Jev when the catalog is already smaller |
-| `debug` | `false` | Write sanitized routing events to the project debug log |
+| Option          | Default           | Meaning                                                        |
+| --------------- | ----------------- | -------------------------------------------------------------- |
+| `provider`      | `"typesafe"`      | `typesafe` for System One or `vercel` for Vercel Evaluation V4 |
+| `apiKeyEnv`     | provider-specific | TypeSafe: `TYPESAFE_API_KEY`; Vercel: `AI_GATEWAY_API_KEY`     |
+| `model`         | provider-specific | TypeSafe: `jev-latest`; Vercel: `typesafe-ai/jev`              |
+| `baseURL`       | provider default  | Custom endpoint using the selected provider protocol           |
+| `mode`          | `"shortlist"`     | `observe`, `shortlist`, or `strict`                            |
+| `timeout`       | `"2 seconds"`     | Total Questions/provider request budget                        |
+| `retry`         | `false`           | HTTP retry policy                                              |
+| `hardThreshold` | `0.8`             | Expose only the selected tool at or above this confidence      |
+| `softThreshold` | `0.55`            | Expose the top-K tools at or above this confidence             |
+| `doneThreshold` | `0.7`             | Evidence required before removing all tools                    |
+| `topK`          | `3`               | Medium-confidence shortlist size                               |
+| `minTools`      | `2`               | Skip Jev when the catalog is already smaller                   |
+| `debug`         | `false`           | Write sanitized routing events to the project debug log        |
 
 ## Modes
 

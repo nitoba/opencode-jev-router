@@ -81,8 +81,7 @@ export function parseConfig(input: unknown): RouterConfig {
   const parsed = optionsSchema.parse(input ?? {});
   const apiKeyEnv =
     parsed.apiKeyEnv ?? (parsed.provider === "vercel" ? "AI_GATEWAY_API_KEY" : "TYPESAFE_API_KEY");
-  const model =
-    parsed.model ?? (parsed.provider === "vercel" ? "typesafe-ai/jev" : "jev-latest");
+  const model = parsed.model ?? (parsed.provider === "vercel" ? "typesafe-ai/jev" : "jev-latest");
 
   return {
     mode: parsed.mode,

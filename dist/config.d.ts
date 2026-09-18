@@ -6,8 +6,12 @@ declare const optionsSchema: z.ZodObject<{
         shortlist: "shortlist";
         strict: "strict";
     }>>;
-    apiKeyEnv: z.ZodDefault<z.ZodString>;
-    model: z.ZodDefault<z.ZodString>;
+    provider: z.ZodDefault<z.ZodEnum<{
+        typesafe: "typesafe";
+        vercel: "vercel";
+    }>>;
+    apiKeyEnv: z.ZodOptional<z.ZodString>;
+    model: z.ZodOptional<z.ZodString>;
     baseURL: z.ZodOptional<z.ZodString>;
     timeout: z.ZodDefault<z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>>;
     retry: z.ZodDefault<z.ZodUnion<readonly [z.ZodLiteral<false>, z.ZodNumber]>>;
@@ -23,6 +27,7 @@ declare const optionsSchema: z.ZodObject<{
 export type PluginOptions = z.input<typeof optionsSchema>;
 export declare const DEFAULT_CONFIG: Readonly<{
     mode: "shortlist";
+    provider: "typesafe";
     apiKeyEnv: string;
     model: string;
     timeout: string;

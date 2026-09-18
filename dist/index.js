@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { Answer, Duration, Question, Questions, TypeSafe } from "@nitoba/questions";
 import { Plugin } from "@opencode/plugin";
+import { appendFileSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+import * as Vercel from "@nitoba/questions/providers/vercel";
 //#region src/config.ts
 const probability = z.number().finite().min(0).max(1);
 const modelOptions = z.record(z.string().min(1), z.record(z.string().min(1), z.unknown()));
@@ -10,8 +13,9 @@ const optionsSchema = z.object({
 		"shortlist",
 		"strict"
 	]).default("shortlist"),
-	apiKeyEnv: z.string().min(1).default("TYPESAFE_API_KEY"),
-	model: z.string().min(1).default("jev-latest"),
+	provider: z.enum(["typesafe", "vercel"]).default("typesafe"),
+	apiKeyEnv: z.string().min(1).optional(),
+	model: z.string().min(1).optional(),
 	baseURL: z.string().url().optional(),
 	timeout: z.union([z.string().min(1), z.number().int().positive()]).default("2 seconds"),
 	retry: z.union([z.literal(false), z.number().int().min(0).max(10)]).default(false),
@@ -29,9 +33,22 @@ const optionsSchema = z.object({
 		path: ["softThreshold"],
 		message: "softThreshold must be less than or equal to hardThreshold"
 	});
+	if (!value.baseURL) return;
+	const url = new URL(value.baseURL);
+	if (value.provider === "typesafe" && url.hostname === "ai-gateway.vercel.sh") context.addIssue({
+		code: "custom",
+		path: ["baseURL"],
+		message: "Vercel AI Gateway is not a System One endpoint. Use provider: \"vercel\" instead of \"typesafe\"."
+	});
+	if (value.provider === "vercel" && url.hostname === "ai-gateway.vercel.sh" && /^\/v1\/?$/.test(url.pathname)) context.addIssue({
+		code: "custom",
+		path: ["baseURL"],
+		message: "The Vercel Jev provider uses the Evaluation V4 endpoint, not the OpenAI-compatible /v1 endpoint. Omit baseURL or use \"https://ai-gateway.vercel.sh/v4/ai\"."
+	});
 });
 const DEFAULT_CONFIG = Object.freeze({
 	mode: "shortlist",
+	provider: "typesafe",
 	apiKeyEnv: "TYPESAFE_API_KEY",
 	model: "jev-latest",
 	timeout: "2 seconds",
@@ -47,10 +64,13 @@ const DEFAULT_CONFIG = Object.freeze({
 });
 function parseConfig(input) {
 	const parsed = optionsSchema.parse(input ?? {});
+	const apiKeyEnv = parsed.apiKeyEnv ?? (parsed.provider === "vercel" ? "AI_GATEWAY_API_KEY" : "TYPESAFE_API_KEY");
+	const model = parsed.model ?? (parsed.provider === "vercel" ? "typesafe-ai/jev" : "jev-latest");
 	return {
 		mode: parsed.mode,
-		apiKeyEnv: parsed.apiKeyEnv,
-		model: parsed.model,
+		provider: parsed.provider,
+		apiKeyEnv,
+		model,
 		...parsed.baseURL === void 0 ? {} : { baseURL: parsed.baseURL },
 		timeout: parsed.timeout,
 		retry: parsed.retry,
@@ -455,23 +475,56 @@ function buildRouterState(messages) {
 }
 //#endregion
 //#region src/logger.ts
-function createLogger(enabled) {
+function createLogger(enabled, directory) {
 	const warned = /* @__PURE__ */ new Set();
+	const file = enabled ? join(directory, ".opencode", "opencode-jev-router.log") : void 0;
+	if (file) try {
+		mkdirSync(join(directory, ".opencode"), { recursive: true });
+	} catch {}
+	const write = (event, data = {}) => {
+		if (!enabled) return;
+		const record = {
+			timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+			event,
+			...data
+		};
+		const line = JSON.stringify(record);
+		console.info("[opencode-jev-router]", line);
+		if (!file) return;
+		try {
+			appendFileSync(file, `${line}\n`, "utf8");
+		} catch {}
+	};
 	return {
+		...file === void 0 ? {} : { file },
+		event: write,
 		debug(trace) {
-			if (!enabled) return;
-			console.info("[opencode-jev-router]", JSON.stringify(trace));
+			write("router.decision", { ...trace });
 		},
 		warnOnce(key, message) {
 			if (warned.has(key)) return;
 			warned.add(key);
 			console.warn(`[opencode-jev-router] ${message}`);
+			write("router.warning", { message });
 		}
 	};
 }
 function errorMessage(error) {
 	if (error instanceof Error) return `${error.name}: ${error.message}`;
 	return "Unknown routing error";
+}
+//#endregion
+//#region src/provider.ts
+function createDecisionModel(config, apiKey) {
+	const common = {
+		apiKey,
+		model: config.model,
+		...config.baseURL === void 0 ? {} : { baseURL: config.baseURL },
+		timeout: Duration.parse(config.timeout),
+		retry: config.retry
+	};
+	if (config.provider === "vercel") return Vercel.create(common);
+	return TypeSafe.create(common);
 }
 //#endregion
 //#region src/plugin.ts
@@ -493,19 +546,20 @@ var plugin_default = Plugin.define({
 	id: "opencode-jev-router",
 	async setup(ctx) {
 		const config = parseConfig(ctx.options);
-		const logger = createLogger(config.debug);
+		const logger = createLogger(config.debug, ctx.location.directory);
 		const apiKey = readEnvironment(config.apiKeyEnv);
+		logger.event("plugin.loaded", {
+			provider: config.provider,
+			model: config.model,
+			mode: config.mode,
+			apiKeyEnv: config.apiKeyEnv,
+			...logger.file === void 0 ? {} : { logFile: logger.file }
+		});
 		if (!apiKey) {
 			logger.warnOnce("missing-api-key", `${config.apiKeyEnv} is not set; Jev routing is disabled and OpenCode will keep its normal tool selection.`);
 			return;
 		}
-		const router = createJevRouter(TypeSafe.create({
-			apiKey,
-			model: config.model,
-			...config.baseURL === void 0 ? {} : { baseURL: config.baseURL },
-			timeout: Duration.parse(config.timeout),
-			retry: config.retry
-		}), config);
+		const router = createJevRouter(createDecisionModel(config, apiKey), config);
 		const registration = await ctx.session.hook("context", async (event) => {
 			const catalogSize = Object.keys(event.tools).length;
 			if (catalogSize < config.minTools) {
@@ -514,6 +568,12 @@ var plugin_default = Plugin.define({
 			}
 			const tools = event.tools;
 			const state = buildRouterState(event.messages);
+			logger.event("jev.request.started", {
+				sessionID: event.sessionID,
+				catalogSize,
+				provider: config.provider,
+				model: config.model
+			});
 			try {
 				const evaluation = await router.evaluate(state, tools);
 				const plan = createRoutingPlan(evaluation, Object.keys(event.tools), config);
@@ -530,6 +590,13 @@ var plugin_default = Plugin.define({
 					usage: evaluation.usage,
 					...evaluation.selectedFamily === void 0 ? {} : { selectedFamily: evaluation.selectedFamily }
 				};
+				logger.event("jev.request.completed", {
+					sessionID: event.sessionID,
+					latencyMs: evaluation.latencyMs,
+					calls: evaluation.calls,
+					confidence: evaluation.nextTool.confidence,
+					doneProbability: evaluation.done.probability
+				});
 				logger.debug(trace);
 				if (config.mode === "observe" || plan.kind === "fallback") return;
 				if (plan.kind === "respond") {
@@ -538,16 +605,30 @@ var plugin_default = Plugin.define({
 						type: "text",
 						text: "No further tool call is needed for this step. Answer the user from the completed work and available results."
 					});
+					logger.event("router.applied", {
+						sessionID: event.sessionID,
+						action: "respond"
+					});
 					return;
 				}
 				keepOnlyTools(event.tools, plan.tools);
 				mergeModelOptions(event.options, config.modelOptions[event.model.providerID]);
+				logger.event("router.applied", {
+					sessionID: event.sessionID,
+					action: "tools",
+					exposedTools: plan.tools
+				});
 			} catch (error) {
 				if (error instanceof RouterCapacityError) {
 					logger.debug(routingTrace(event, config.mode, catalogSize, "catalog-too-large"));
 					return;
 				}
-				logger.warnOnce(`routing:${errorMessage(error)}`, `Jev routing failed; falling back to OpenCode's normal tool selection. ${errorMessage(error)}`);
+				const message = errorMessage(error);
+				logger.event("jev.request.failed", {
+					sessionID: event.sessionID,
+					error: message
+				});
+				logger.warnOnce(`routing:${message}`, `Jev routing failed; falling back to OpenCode's normal tool selection. ${message}`);
 			}
 		});
 		return () => registration.dispose();

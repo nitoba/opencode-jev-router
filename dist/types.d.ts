@@ -1,6 +1,7 @@
 import type { BooleanAnswer, ChoiceAnswer, ConfidenceSource, JsonObject, ProbabilitySource, Usage } from "@nitoba/questions";
 export declare const RESPOND_TO_USER: "__jev_router_respond_to_user__";
 export type RouterMode = "observe" | "shortlist" | "strict";
+export type RouterProvider = "typesafe" | "vercel";
 export interface ToolDefinition {
     readonly description: string;
     readonly input: unknown;
@@ -21,6 +22,7 @@ export interface RouterState extends JsonObject {
 }
 export interface RouterConfig {
     readonly mode: RouterMode;
+    readonly provider: RouterProvider;
     readonly apiKeyEnv: string;
     readonly model: string;
     readonly baseURL?: string;

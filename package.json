@@ -53,19 +53,19 @@
     "build:dist": "bun run --bun tsdown && tsc -p tsconfig.build.json"
   },
   "dependencies": {
+    "@ai-sdk/gateway": "4.0.85",
     "@nitoba/questions": "0.1.0-rc.3",
     "@opencode/plugin": "2.0.5",
-    "zod": "4.6.5",
-    "@ai-sdk/gateway": "4.0.85"
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@types/bun": "1.4.2",
+    "@types/node": "24.10.0",
     "oxfmt": "0.66.0",
     "oxlint": "1.83.0",
     "publint": "0.3.24",
     "tsdown": "0.23.0",
-    "typescript": "7.0.2",
-    "@types/node": "24.10.0"
+    "typescript": "7.0.2"
   },
   "engines": {
     "node": ">=22",
