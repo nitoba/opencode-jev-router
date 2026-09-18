@@ -1,5 +1,6 @@
 export { DEFAULT_CONFIG, parseConfig, type PluginOptions } from "./config.ts";
 export { createRoutingPlan } from "./policy.ts";
+export { RateLimitCircuitBreaker, type RateLimitAttempt, type RateLimitOpened, type RateLimitRecovered, } from "./rate-limit.ts";
 export { createJevRouter, DONE_QUESTION, NEXT_TOOL_QUESTION, RouterCapacityError, type JevRouter, } from "./router.ts";
 export { buildRouterState } from "./state.ts";
 export { describeFamily, describeTool, groupToolsByFamily, keepOnlyTools, mergeModelOptions, toolCriteria, toolCriteriaChars, toolFamily, } from "./tools.ts";

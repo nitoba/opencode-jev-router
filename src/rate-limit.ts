@@ -49,9 +49,7 @@ export class RateLimitCircuitBreaker {
     this.probeInFlight = false;
     this.consecutiveRateLimits += 1;
     this.cooldownMs =
-      this.cooldownMs === 0
-        ? INITIAL_COOLDOWN_MS
-        : Math.min(this.cooldownMs * 2, MAX_COOLDOWN_MS);
+      this.cooldownMs === 0 ? INITIAL_COOLDOWN_MS : Math.min(this.cooldownMs * 2, MAX_COOLDOWN_MS);
     this.blockedUntil = now + this.cooldownMs;
 
     return {

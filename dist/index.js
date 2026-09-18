@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Answer, Duration, Question, Questions, TypeSafe } from "@nitoba/questions";
+import { Answer, Duration, ProviderError, Question, Questions, TypeSafe } from "@nitoba/questions";
 import { Plugin } from "@opencode/plugin";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -153,6 +153,67 @@ function createRoutingPlan(evaluation, availableTools, config) {
 		reason: "low-confidence"
 	};
 }
+//#endregion
+//#region src/rate-limit.ts
+const INITIAL_COOLDOWN_MS = 6e4;
+const MAX_COOLDOWN_MS = 3e5;
+var RateLimitCircuitBreaker = class {
+	blockedUntil = 0;
+	cooldownMs = 0;
+	consecutiveRateLimits = 0;
+	probeInFlight = false;
+	attempt(now = Date.now()) {
+		if (this.blockedUntil === 0) return {
+			allowed: true,
+			probe: false,
+			remainingMs: 0
+		};
+		if (now < this.blockedUntil) return {
+			allowed: false,
+			probe: false,
+			remainingMs: this.blockedUntil - now
+		};
+		if (this.probeInFlight) return {
+			allowed: false,
+			probe: false,
+			remainingMs: 0
+		};
+		this.probeInFlight = true;
+		return {
+			allowed: true,
+			probe: true,
+			remainingMs: 0
+		};
+	}
+	rateLimited(now = Date.now()) {
+		this.probeInFlight = false;
+		this.consecutiveRateLimits += 1;
+		this.cooldownMs = this.cooldownMs === 0 ? INITIAL_COOLDOWN_MS : Math.min(this.cooldownMs * 2, MAX_COOLDOWN_MS);
+		this.blockedUntil = now + this.cooldownMs;
+		return {
+			cooldownMs: this.cooldownMs,
+			blockedUntil: this.blockedUntil,
+			consecutiveRateLimits: this.consecutiveRateLimits
+		};
+	}
+	succeeded() {
+		if (this.blockedUntil === 0 && !this.probeInFlight) return void 0;
+		const recovered = {
+			previousCooldownMs: this.cooldownMs,
+			consecutiveRateLimits: this.consecutiveRateLimits
+		};
+		this.blockedUntil = 0;
+		this.cooldownMs = 0;
+		this.consecutiveRateLimits = 0;
+		this.probeInFlight = false;
+		return recovered;
+	}
+	failedProbe(now = Date.now()) {
+		if (!this.probeInFlight) return;
+		this.probeInFlight = false;
+		this.blockedUntil = now + Math.max(this.cooldownMs, INITIAL_COOLDOWN_MS);
+	}
+};
 //#endregion
 //#region src/tools.ts
 function isRecord$1(value) {
@@ -554,6 +615,9 @@ function createDecisionModel(config, apiKey) {
 function readEnvironment(name) {
 	return globalThis.process?.env?.[name];
 }
+function isRateLimitError(error) {
+	return error instanceof ProviderError && error.status === 429;
+}
 function routingTrace(event, mode, catalogSize, reason) {
 	return {
 		sessionID: event.sessionID,
@@ -600,12 +664,20 @@ var plugin_default = Plugin.define({
 			return;
 		}
 		const router = createJevRouter(createDecisionModel(config, apiKey), config);
+		const rateLimit = new RateLimitCircuitBreaker();
 		const registration = await ctx.session.hook("context", async (event) => {
 			const catalogSize = Object.keys(event.tools).length;
 			if (catalogSize < config.minTools) {
 				logger.debug(routingTrace(event, config.mode, catalogSize, "too-few-tools"));
 				return;
 			}
+			const attempt = rateLimit.attempt();
+			if (!attempt.allowed) return;
+			if (attempt.probe) logger.event("router.rate_limit.probe", {
+				sessionID: event.sessionID,
+				provider: config.provider,
+				model: config.model
+			});
 			const tools = event.tools;
 			const state = buildRouterState(event.messages);
 			try {
@@ -618,6 +690,13 @@ var plugin_default = Plugin.define({
 					...metrics
 				});
 				const evaluation = await router.evaluate(state, tools);
+				const recovered = rateLimit.succeeded();
+				if (recovered) logger.event("router.rate_limit.recovered", {
+					sessionID: event.sessionID,
+					provider: config.provider,
+					model: config.model,
+					...recovered
+				});
 				const measured = withTokenDensity(metrics, evaluation.usage.inputTokens, catalogSize);
 				const plan = createRoutingPlan(evaluation, Object.keys(event.tools), config);
 				const trace = {
@@ -667,6 +746,7 @@ var plugin_default = Plugin.define({
 				});
 			} catch (error) {
 				if (error instanceof RouterCapacityError) {
+					if (attempt.probe) rateLimit.failedProbe();
 					logger.debug(routingTrace(event, config.mode, catalogSize, "catalog-too-large"));
 					return;
 				}
@@ -675,6 +755,19 @@ var plugin_default = Plugin.define({
 					sessionID: event.sessionID,
 					error: message
 				});
+				if (isRateLimitError(error)) {
+					const opened = rateLimit.rateLimited();
+					logger.event("router.rate_limit", {
+						sessionID: event.sessionID,
+						provider: config.provider,
+						model: config.model,
+						status: error.status,
+						...opened
+					});
+					logger.warnOnce(`rate-limit:${opened.consecutiveRateLimits}`, `Jev rate limited the router; routing is paused for ${Math.round(opened.cooldownMs / 1e3)}s and OpenCode will keep its normal tool selection.`);
+					return;
+				}
+				if (attempt.probe) rateLimit.failedProbe();
 				logger.warnOnce(`routing:${message}`, `Jev routing failed; falling back to OpenCode's normal tool selection. ${message}`);
 			}
 		});
@@ -682,6 +775,6 @@ var plugin_default = Plugin.define({
 	}
 });
 //#endregion
-export { DEFAULT_CONFIG, DONE_QUESTION, NEXT_TOOL_QUESTION, RESPOND_TO_USER, RouterCapacityError, buildRouterState, createJevRouter, createRoutingPlan, plugin_default as default, describeFamily, describeTool, groupToolsByFamily, keepOnlyTools, mergeModelOptions, parseConfig, toolCriteria, toolCriteriaChars, toolFamily };
+export { DEFAULT_CONFIG, DONE_QUESTION, NEXT_TOOL_QUESTION, RESPOND_TO_USER, RateLimitCircuitBreaker, RouterCapacityError, buildRouterState, createJevRouter, createRoutingPlan, plugin_default as default, describeFamily, describeTool, groupToolsByFamily, keepOnlyTools, mergeModelOptions, parseConfig, toolCriteria, toolCriteriaChars, toolFamily };
 
 //# sourceMappingURL=index.js.map
