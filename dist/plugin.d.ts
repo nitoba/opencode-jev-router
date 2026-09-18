@@ -1,0 +1,4 @@
+import { Plugin } from "@opencode/plugin";
+declare const _default: Plugin.Plugin;
+export default _default;
+//# sourceMappingURL=plugin.d.ts.map
