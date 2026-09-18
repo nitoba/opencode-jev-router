@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
 import {
+  describeFamily,
   describeTool,
   groupToolsByFamily,
   keepOnlyTools,
   mergeModelOptions,
+  toolCriteriaChars,
   toolFamily,
 } from "../src/tools.ts";
 
@@ -14,11 +16,11 @@ test("toolFamily keeps MCP namespaces together and recognizes common prefixes", 
   expect(toolFamily("read")).toBe("read");
 });
 
-test("describeTool gives Jev a compact schema-oriented description", () => {
+test("describeTool gives Jev a compact schema-oriented description without duplicating the key", () => {
   const description = describeTool(
     "read",
     {
-      description: "Read a file from disk.",
+      description: "Read a file\n\nfrom disk.",
       input: {
         type: "object",
         required: ["path"],
@@ -28,12 +30,42 @@ test("describeTool gives Jev a compact schema-oriented description", () => {
         },
       },
     },
-    900,
+    600,
   );
 
   expect(description).toContain("Read a file from disk.");
   expect(description).toContain("path:string!");
   expect(description).toContain("offset:number");
+  expect(description).not.toContain("Tool name:");
+  expect(description.length).toBeLessThanOrEqual(600);
+});
+
+test("tool criteria telemetry measures bounded descriptions sent to Jev", () => {
+  const tools = {
+    read: { description: "x".repeat(2_000), input: { type: "object" } },
+    grep: { description: "Search code", input: { type: "object" } },
+  };
+
+  const chars = toolCriteriaChars(tools, 600);
+  expect(chars).toBeLessThan(750);
+  expect(chars).toBeGreaterThan(600);
+});
+
+test("family descriptions share the budget across multiple tools", () => {
+  const description = describeFamily(
+    "github",
+    Object.fromEntries(
+      Array.from({ length: 8 }, (_, index) => [
+        `github_tool_${index}`,
+        { description: "x".repeat(500), input: {} },
+      ]),
+    ),
+    600,
+  );
+
+  expect(description.length).toBeLessThanOrEqual(600);
+  expect(description).toContain("github_tool_0");
+  expect(description).toContain("github_tool_1");
 });
 
 test("groupToolsByFamily and keepOnlyTools operate on the real dynamic catalog", () => {
