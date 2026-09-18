@@ -4,6 +4,7 @@ import { DEFAULT_CONFIG, parseConfig } from "../src/config.ts";
 describe("parseConfig", () => {
   test("uses conservative TypeSafe shortlist defaults", () => {
     expect(parseConfig({})).toEqual(DEFAULT_CONFIG);
+    expect(DEFAULT_CONFIG.maxToolDescriptionChars).toBe(600);
   });
 
   test("accepts an inline API key without exposing an environment variable name", () => {
