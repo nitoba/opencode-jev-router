@@ -37,7 +37,7 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: TypeScript 7, lint, format, tests, build and package smoke
+      - name: TypeScript 7, lint, format, tests, build, provider and package smoke
         run: bun run check
 
       - name: OpenCode Git manifest compatibility
