@@ -8,6 +8,12 @@ const MAX_RESULT_CHARS = 1_600;
 
 type UnknownRecord = Record<string, unknown>;
 
+interface PendingAction {
+  readonly step: number;
+  readonly tool: string;
+  readonly input: string;
+}
+
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -53,7 +59,7 @@ export function buildRouterState(messages: readonly unknown[]): RouterState {
   const userMessages: string[] = [];
   const assistantMessages: string[] = [];
   const actions: RouterAction[] = [];
-  const pending = new Map<string, Omit<RouterAction, "result" | "status">>();
+  const pending = new Map<string, PendingAction>();
   let step = 0;
 
   for (const message of messages) {
