@@ -34,7 +34,8 @@ jobs:
         with:
           bun-version: "1.4.2"
 
-      - run: bun install
+      - name: Install dependencies
+        run: bun install
 
       - name: TypeScript 7, lint, format, tests, build and package smoke
         run: bun run check
