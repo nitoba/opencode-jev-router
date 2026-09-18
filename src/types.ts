@@ -70,6 +70,15 @@ export interface RoutingEvaluation {
   readonly selectedFamily?: string;
 }
 
+export interface RoutingInputMetrics {
+  readonly stateChars: number;
+  readonly toolCriteriaChars: number;
+  readonly actionsCount: number;
+  readonly userMessagesCount: number;
+  readonly assistantMessagesCount: number;
+  readonly inputTokensPerTool?: number;
+}
+
 export type RoutingPlan =
   | {
       readonly kind: "respond";
@@ -115,4 +124,10 @@ export interface RoutingTrace {
   readonly calls?: 1 | 2;
   readonly usage?: Usage;
   readonly selectedFamily?: string;
+  readonly stateChars?: number;
+  readonly toolCriteriaChars?: number;
+  readonly actionsCount?: number;
+  readonly userMessagesCount?: number;
+  readonly assistantMessagesCount?: number;
+  readonly inputTokensPerTool?: number;
 }
