@@ -19,22 +19,18 @@ const MAX_DIRECT_TOOLS = 254;
 const MAX_SECOND_STAGE_TOOLS = 255;
 
 export const NEXT_TOOL_QUESTION = `
-Choose the single tool the coding agent should call NEXT to make progress on the user's current request.
-
-Use the current request, actions already taken and their results. Respect dependencies: inspect or look
-things up before a mutation when needed. Do not repeat an action that already completed successfully.
-A failed action may be retried only when that is the appropriate next step. Choose the respond option
-only when no further tool call is needed.
+Choose the single tool the coding agent should call NEXT. Use the current request and recent tool
+outcomes. Respect dependencies and avoid repeating successful actions. Retry a failed action only
+when appropriate. Choose respond only when no further tool call is needed.
 `.trim();
 
 export const DONE_QUESTION = `
-Has every action required to satisfy the user's current request already been completed successfully?
-Return false when any required lookup, edit, command, test, commit, push, pull request, message or other
-action is still missing, or when a required action failed and still needs recovery.
+Are all actions required by the current request already complete and successful? Return false when
+any required lookup, edit, command, test, commit, push, message or recovery step is still missing.
 `.trim();
 
 const RESPOND_DESCRIPTION =
-  "No tool call is needed now: the user's current request is complete, or none of the available tools applies. The assistant should answer the user.";
+  "No tool call is needed: the current request is complete or no available tool applies.";
 
 export class RouterCapacityError extends Error {
   readonly catalogSize: number;
@@ -109,8 +105,8 @@ export function createJevRouter(model: QuestionModel, config: RouterConfig): Jev
         withRespond(toolCriteria(tools, config.maxToolDescriptionChars)),
       ),
       done: Question.boolean(DONE_QUESTION, {
-        true: "Every required action is already complete and successful.",
-        false: "At least one required action is missing, failed, or still needs follow-up.",
+        true: "Every required action is complete and successful.",
+        false: "At least one required action is missing, failed, or needs follow-up.",
       }),
     });
 
@@ -151,8 +147,8 @@ export function createJevRouter(model: QuestionModel, config: RouterConfig): Jev
         withRespond(familyCriteria),
       ),
       done: Question.boolean(DONE_QUESTION, {
-        true: "Every required action is already complete and successful.",
-        false: "At least one required action is missing, failed, or still needs follow-up.",
+        true: "Every required action is complete and successful.",
+        false: "At least one required action is missing, failed, or needs follow-up.",
       }),
     });
 
@@ -212,7 +208,7 @@ export function createJevRouter(model: QuestionModel, config: RouterConfig): Jev
 
     const toolEvaluation = await questions.about(state).evidence({
       nextTool: Question.choice(
-        `Within the already selected "${selectedFamily}" family, which tool should the coding agent call NEXT?`,
+        `Within the selected "${selectedFamily}" family, which tool should run NEXT?`,
         toolCriteria(selectedTools, config.maxToolDescriptionChars),
       ),
     });
