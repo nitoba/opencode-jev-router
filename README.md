@@ -216,26 +216,46 @@ tail -f .opencode/opencode-jev-router.log
 ```
 
 The debug log does not include the API key, raw prompts, complete tool arguments, or raw tool
-results.
+results. Routing events include size telemetry such as `stateChars`, `toolCriteriaChars`,
+`actionsCount`, `userMessagesCount`, `assistantMessagesCount`, and `inputTokensPerTool`.
+`latencyMs` is the end-to-end Jev routing latency for that decision.
+
+### Routing input budget
+
+The router keeps only the context needed to choose the next action:
+
+- current user request plus one previous user message;
+- the two most recent assistant text messages;
+- the eight most recent completed or failed tool actions;
+- up to 400 characters of each tool input and 800 characters of each tool result;
+- up to 600 characters of assistant text and 1,200 characters of user text;
+- up to 600 characters per compact tool description by default.
+
+These bounds keep routing context from growing with the full OpenCode session while preserving recent
+operational state and tool outcomes.
 
 ### Options
 
-| Option          | Default           | Meaning                                                        |
-| --------------- | ----------------- | -------------------------------------------------------------- |
-| `provider`      | `"typesafe"`      | `typesafe` for System One or `vercel` for Vercel Evaluation V4 |
-| `apiKey`        | unset             | Inline provider credential; never emitted to debug logs        | \n  | `apiKeyEnv` | provider-specific | Name of the environment variable containing the credential |
-| `model`         | provider-specific | TypeSafe: `jev-latest`; Vercel: `typesafe-ai/jev`              |
-| `baseURL`       | provider default  | Custom endpoint using the selected provider protocol           |
-| `mode`          | `"shortlist"`     | `observe`, `shortlist`, or `strict`                            |
-| `timeout`       | `"2 seconds"`     | Total Questions/provider request budget                        |
-| `retry`         | `false`           | HTTP retry policy                                              |
-| `hardThreshold` | `0.8`             | Expose only the selected tool at or above this confidence      |
-| `softThreshold` | `0.55`            | Expose the top-K tools at or above this confidence             |
-| `doneThreshold` | `0.7`             | Evidence required before removing all tools                    |
-| `topK`          | `3`               | Medium-confidence shortlist size                               |
-| `minTools`      | `2`               | Skip Jev when the catalog is already smaller                   |
-| `debug`         | `false`           | Write sanitized routing events to the project debug log        |
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `provider` | `"typesafe"` | `typesafe` for System One or `vercel` for Vercel Evaluation V4 |
+| `apiKey` | unset | Inline provider credential; never emitted to debug logs |
+| `apiKeyEnv` | provider-specific | Name of the environment variable containing the credential |
+| `model` | provider-specific | TypeSafe: `jev-latest`; Vercel: `typesafe-ai/jev` |
+| `baseURL` | provider default | Custom endpoint using the selected provider protocol |
+| `mode` | `"shortlist"` | `observe`, `shortlist`, or `strict` |
+| `timeout` | `"2 seconds"` | Total Questions/provider request budget |
+| `retry` | `false` | HTTP retry policy |
+| `hardThreshold` | `0.8` | Expose only the selected tool at or above this confidence |
+| `softThreshold` | `0.55` | Expose the top-K tools at or above this confidence |
+| `doneThreshold` | `0.7` | Evidence required before removing all tools |
+| `topK` | `3` | Medium-confidence shortlist size |
+| `minTools` | `2` | Skip Jev when the catalog is already smaller |
+| `maxToolDescriptionChars` | `600` | Maximum compact description size per tool sent to Jev |
+| `debug` | `false` | Write sanitized routing events to the project debug log |
 
+`softThreshold` must be less than or equal to `hardThreshold`. Unknown configuration keys are
+rejected so typos do not silently change routing behavior.
 ## Modes
 
 ### `observe`
