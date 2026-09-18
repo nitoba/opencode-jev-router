@@ -11,6 +11,10 @@ function clip(value: string, max: number): string {
   return `${value.slice(0, Math.max(0, max - 14))}…[truncated]`;
 }
 
+function compact(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
 function schemaType(schema: unknown): string {
   if (!isRecord(schema)) return "unknown";
   if (typeof schema.type === "string") return schema.type;
@@ -44,8 +48,8 @@ function summarizeInputSchema(input: unknown): string {
 }
 
 export function describeTool(name: string, tool: ToolDefinition, maxChars: number): string {
-  const description = tool.description.trim() || "No description provided.";
-  return clip(`${description} ${summarizeInputSchema(tool.input)} Tool name: ${name}.`, maxChars);
+  const description = compact(tool.description) || `Tool ${name}.`;
+  return clip(`${description} ${summarizeInputSchema(tool.input)}`, maxChars);
 }
 
 export function toolCriteria(
@@ -58,6 +62,10 @@ export function toolCriteria(
   return Object.fromEntries(
     Object.entries(tools).map(([name, tool]) => [name, describeTool(name, tool, maxChars)]),
   );
+}
+
+export function toolCriteriaChars(tools: ToolCatalog, maxChars: number): number {
+  return JSON.stringify(toolCriteria(tools, maxChars)).length;
 }
 
 export function toolFamily(name: string): string {
@@ -95,15 +103,17 @@ export function describeFamily(
   maxChars: number,
 ): string {
   const entries = Object.entries(tools);
+  const sampleCount = Math.min(entries.length, 8);
+  const perToolChars = Math.max(48, Math.floor(maxChars / Math.max(sampleCount, 1)) - 24);
   const sample = entries
-    .slice(0, 8)
-    .map(([name, tool]) => `${name}: ${tool.description.trim() || "No description"}`)
+    .slice(0, sampleCount)
+    .map(([name, tool]) => {
+      const description = compact(tool.description) || "No description";
+      return `${name}: ${clip(description, perToolChars)}`;
+    })
     .join(" | ");
-  const suffix = entries.length > 8 ? ` | … ${entries.length - 8} more tools` : "";
-  return clip(
-    `Tool family "${family}" with ${entries.length} tool(s). ${sample}${suffix}`,
-    Math.max(maxChars, 1_200),
-  );
+  const suffix = entries.length > sampleCount ? ` | … ${entries.length - sampleCount} more` : "";
+  return clip(`Family ${family}: ${entries.length} tool(s). ${sample}${suffix}`, maxChars);
 }
 
 export function keepOnlyTools<T>(tools: Record<string, T>, allowed: readonly string[]): void {
