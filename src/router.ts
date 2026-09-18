@@ -2,7 +2,6 @@ import {
   Answer,
   Question,
   Questions,
-  type BooleanAnswer,
   type ChoiceAnswer,
   type QuestionModel,
   type Usage,
