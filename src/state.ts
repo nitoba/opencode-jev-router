@@ -1,10 +1,12 @@
 import type { RouterAction, RouterState } from "./types.ts";
 
-const MAX_USER_MESSAGES = 4;
-const MAX_ASSISTANT_MESSAGES = 8;
-const MAX_ACTIONS = 32;
-const MAX_TEXT_CHARS = 1_200;
-const MAX_RESULT_CHARS = 1_600;
+const MAX_USER_MESSAGES = 2;
+const MAX_ASSISTANT_MESSAGES = 2;
+const MAX_ACTIONS = 8;
+const MAX_USER_TEXT_CHARS = 1_200;
+const MAX_ASSISTANT_TEXT_CHARS = 600;
+const MAX_ACTION_INPUT_CHARS = 400;
+const MAX_ACTION_RESULT_CHARS = 800;
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -32,6 +34,11 @@ function printable(value: unknown, max: number): string {
   }
 }
 
+function pushRecent<T>(values: T[], value: T, max: number): void {
+  values.push(value);
+  if (values.length > max) values.splice(0, values.length - max);
+}
+
 function textParts(content: unknown): string {
   if (!Array.isArray(content)) return "";
   return content
@@ -55,7 +62,8 @@ function toolResultValue(result: unknown): {
 }
 
 /**
- * Convert OpenCode's assembled LLM messages into compact JSON state for semantic routing.
+ * Convert OpenCode's assembled LLM messages into a small operational state for semantic routing.
+ * Only recent user intent, assistant progress and completed tool outcomes are retained.
  * Reasoning, media, provider metadata and raw binary content are intentionally excluded.
  */
 export function buildRouterState(messages: readonly unknown[]): RouterState {
@@ -71,13 +79,19 @@ export function buildRouterState(messages: readonly unknown[]): RouterState {
 
     if (message.role === "user") {
       const text = textParts(content);
-      if (text) userMessages.push(clip(text, MAX_TEXT_CHARS));
+      if (text) pushRecent(userMessages, clip(text, MAX_USER_TEXT_CHARS), MAX_USER_MESSAGES);
       continue;
     }
 
     if (message.role === "assistant") {
       const text = textParts(content);
-      if (text) assistantMessages.push(clip(text, MAX_TEXT_CHARS));
+      if (text) {
+        pushRecent(
+          assistantMessages,
+          clip(text, MAX_ASSISTANT_TEXT_CHARS),
+          MAX_ASSISTANT_MESSAGES,
+        );
+      }
       if (!Array.isArray(content)) continue;
 
       for (const part of content) {
@@ -94,7 +108,7 @@ export function buildRouterState(messages: readonly unknown[]): RouterState {
         pending.set(part.id, {
           step,
           tool: part.name,
-          input: printable(part.input, MAX_RESULT_CHARS),
+          input: printable(part.input, MAX_ACTION_INPUT_CHARS),
         });
       }
       continue;
@@ -118,20 +132,23 @@ export function buildRouterState(messages: readonly unknown[]): RouterState {
         input: "",
       };
       const result = toolResultValue(part.result);
-      actions.push({
-        ...call,
-        status: result.status,
-        result: printable(result.value, MAX_RESULT_CHARS),
-      });
+      pushRecent(
+        actions,
+        {
+          ...call,
+          status: result.status,
+          result: printable(result.value, MAX_ACTION_RESULT_CHARS),
+        },
+        MAX_ACTIONS,
+      );
       pending.delete(part.id);
     }
   }
 
-  const recentUsers = userMessages.slice(-MAX_USER_MESSAGES);
   return {
-    user_request: recentUsers.at(-1) ?? "",
-    prior_user_messages: recentUsers.slice(0, -1),
-    actions_taken: actions.slice(-MAX_ACTIONS),
-    assistant_said: assistantMessages.slice(-MAX_ASSISTANT_MESSAGES),
+    user_request: userMessages.at(-1) ?? "",
+    prior_user_messages: userMessages.slice(0, -1),
+    actions_taken: actions,
+    assistant_said: assistantMessages,
   };
 }
