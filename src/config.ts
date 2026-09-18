@@ -46,4 +46,26 @@ export const DEFAULT_CONFIG = Object.freeze({
   topK: 3,
   minTools: 2,
   maxToolDescriptionChars: 900,
-  debuYÎˆ˜[ÙKˆ[Ù[Ü[ÛœÎˆßKŸHØ]\ÙšY\ÈÛZ]›İ]\ÛÛ™šYË˜˜\ÙUT“ŠNÂ‚™^Ü[˜İ[Ûˆ\œÙPÛÛ™šYÊ[œ]ˆ[šÛ›İÛŠNˆ›İ]\ÛÛ™šYÈÂˆÛÛœİ\œÙYHÜ[ÛœÔØÚ[XKœ\œÙJ[œ]ÏÈßJNÂˆ™]\›ˆÂˆ[ÙNˆ\œÙY›[ÙKˆ\RÙ^Q[ˆ\œÙY˜\RÙ^Q[‹ˆ[Ù[ˆ\œÙY›[Ù[ˆ‹‹Š\œÙY˜˜\ÙUT“OOH[™Yš[™YÈßHˆÈ˜\ÙUT“ˆ\œÙY˜˜\ÙUT“JKˆ[Y[İ]ˆ\œÙY[Y[İ]ˆ™]Nˆ\œÙYœ™]Kˆ\™™\ÚÛˆ\œÙYš\™™\ÚÛˆÛÙ™\ÚÛˆ\œÙYœÛÙ™\ÚÛˆÛ™U™\ÚÛˆ\œÙY™Û™U™\ÚÛˆÜÎˆ\œÙYÜËˆZ[•ÛÛÎˆ\œÙY›Z[•ÛÛËˆX^ÛÛ\ØÜš\[ÛÚ\œÎˆ\œÙY›X^ÛÛ\ØÜš\[ÛÚ\œËˆXYÎˆ\œÙY™XYËˆ[Ù[Ü[ÛœÎˆ\œÙY›[Ù[Ü[ÛœËˆNÂŸB
+  debug: false,
+  modelOptions: {},
+} satisfies Omit<RouterConfig, "baseURL">);
+
+export function parseConfig(input: unknown): RouterConfig {
+  const parsed = optionsSchema.parse(input ?? {});
+  return {
+    mode: parsed.mode,
+    apiKeyEnv: parsed.apiKeyEnv,
+    model: parsed.model,
+    ...(parsed.baseURL === undefined ? {} : { baseURL: parsed.baseURL }),
+    timeout: parsed.timeout,
+    retry: parsed.retry,
+    hardThreshold: parsed.hardThreshold,
+    softThreshold: parsed.softThreshold,
+    doneThreshold: parsed.doneThreshold,
+    topK: parsed.topK,
+    minTools: parsed.minTools,
+    maxToolDescriptionChars: parsed.maxToolDescriptionChars,
+    debug: parsed.debug,
+    modelOptions: parsed.modelOptions,
+  };
+}
