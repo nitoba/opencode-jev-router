@@ -40,6 +40,10 @@ jobs:
       - name: TypeScript 7, lint, format, tests, build and package smoke
         run: bun run check
 
+      - name: OpenCode Git manifest compatibility
+        if: matrix.node == '24'
+        run: node scripts/opencode-git-manifest-smoke.mjs
+
       - name: Git dependency install smoke without Bun
         if: matrix.node == '24'
         run: bun run test:git-install

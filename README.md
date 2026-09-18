@@ -104,7 +104,7 @@ For development from this repository:
 git clone https://github.com/nitoba/opencode-jev-router
 cd opencode-jev-router
 bun install
-bun run build
+bun run build:dist
 ```
 
 Then reference the local package from `opencode.jsonc`:
@@ -270,7 +270,7 @@ bun run typecheck
 bun run lint
 bun run format:check
 bun test
-bun run build
+bun run build:dist
 bun run check
 ```
 

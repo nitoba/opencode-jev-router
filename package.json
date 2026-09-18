@@ -1,6 +1,6 @@
 {
   "name": "opencode-jev-router",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "description": "Jev-powered tool routing for OpenCode 2 using @nitoba/questions.",
   "keywords": [
     "agent",
@@ -45,12 +45,12 @@
     "lint": "oxlint --deny-warnings",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
-    "build": "bun run --bun tsdown && tsc -p tsconfig.build.json",
     "test:package": "node scripts/package-smoke.mjs",
     "test:git-install": "node scripts/git-install-smoke.mjs",
-    "check": "bun run typecheck && bun run lint && bun run format:check && bun test && bun run build && publint && bun run test:package",
+    "check": "bun run typecheck && bun run lint && bun run format:check && bun test && bun run build:dist && publint && bun run test:package",
     "prepublishOnly": "bun run check",
-    "release:dry-run": "npm publish --dry-run --access public --tag next"
+    "release:dry-run": "npm publish --dry-run --access public --tag next",
+    "build:dist": "bun run --bun tsdown && tsc -p tsconfig.build.json"
   },
   "dependencies": {
     "@nitoba/questions": "0.1.0-rc.3",
