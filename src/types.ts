@@ -2,6 +2,7 @@ import type {
   BooleanAnswer,
   ChoiceAnswer,
   ConfidenceSource,
+  JsonObject,
   ProbabilitySource,
   Usage,
 } from "@nitoba/questions";
@@ -17,7 +18,7 @@ export interface ToolDefinition {
 
 export type ToolCatalog = Readonly<Record<string, ToolDefinition>>;
 
-export interface RouterAction {
+export interface RouterAction extends JsonObject {
   readonly step: number;
   readonly tool: string;
   readonly input: string;
@@ -25,7 +26,7 @@ export interface RouterAction {
   readonly status: "completed" | "error";
 }
 
-export interface RouterState {
+export interface RouterState extends JsonObject {
   readonly user_request: string;
   readonly prior_user_messages: readonly string[];
   readonly actions_taken: readonly RouterAction[];

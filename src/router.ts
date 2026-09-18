@@ -243,7 +243,7 @@ export function createJevRouter(model: QuestionModel, config: RouterConfig): Jev
   }
 
   return Object.freeze({
-    evaluate(state, tools) {
+    evaluate(state: RouterState, tools: ToolCatalog) {
       const size = Object.keys(tools).length;
       return size <= MAX_DIRECT_TOOLS ? direct(state, tools) : hierarchical(state, tools);
     },

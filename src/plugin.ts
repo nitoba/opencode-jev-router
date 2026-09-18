@@ -1,5 +1,5 @@
 import { Plugin } from "@opencode/plugin";
-import { TypeSafe } from "@nitoba/questions";
+import { Duration, TypeSafe } from "@nitoba/questions";
 import { parseConfig } from "./config.ts";
 import { createLogger, errorMessage } from "./logger.ts";
 import { createRoutingPlan } from "./policy.ts";
@@ -56,7 +56,7 @@ export default Plugin.define({
       apiKey,
       model: config.model,
       ...(config.baseURL === undefined ? {} : { baseURL: config.baseURL }),
-      timeout: config.timeout,
+      timeout: Duration.parse(config.timeout),
       retry: config.retry,
     });
     const router = createJevRouter(model, config);
