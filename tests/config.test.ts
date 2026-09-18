@@ -38,7 +38,7 @@ describe("parseConfig", () => {
         provider: "typesafe",
         baseURL: "https://ai-gateway.vercel.sh/v4/ai",
       }),
-    ).toThrow('provider: "vercel"');
+    ).toThrow("Vercel AI Gateway is not a System One endpoint");
   });
 
   test("accepts provider model options and explicit routing thresholds", () => {
