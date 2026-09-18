@@ -25,7 +25,7 @@ const optionsSchema = z
     doneThreshold: probability.default(0.7),
     topK: z.number().int().min(1).max(254).default(3),
     minTools: z.number().int().min(1).default(2),
-    maxToolDescriptionChars: z.number().int().min(160).max(4_000).default(900),
+    maxToolDescriptionChars: z.number().int().min(160).max(4_000).default(600),
     debug: z.boolean().default(false),
     modelOptions: modelOptions.default({}),
   })
@@ -87,7 +87,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   doneThreshold: 0.7,
   topK: 3,
   minTools: 2,
-  maxToolDescriptionChars: 900,
+  maxToolDescriptionChars: 600,
   debug: false,
   modelOptions: {},
 } satisfies Omit<RouterConfig, "apiKey" | "baseURL">);
