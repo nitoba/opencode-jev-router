@@ -303,12 +303,32 @@ tool-selection reasoning after successful routing, opt in explicitly per provide
 The object is merged into OpenCode's existing request options only when the router actually narrows
 the tool set. Fallback steps keep the model's normal settings.
 
+## Rate-limit circuit breaker
+
+HTTP 429 responses open an in-memory circuit breaker so a temporarily rate-limited provider is not
+called on every subsequent OpenCode step. The router fails open while the circuit is open.
+
+The cooldown sequence is:
+
+```text
+60s -> 120s -> 240s -> 300s max
+```
+
+After a cooldown expires, only one request is allowed through as a probe. A successful probe closes
+the circuit and resets the backoff. Another 429 increases the cooldown. A non-429 probe failure keeps
+the current cooldown without increasing it.
+
+Debug logs emit `router.rate_limit`, `router.rate_limit.probe`, and
+`router.rate_limit.recovered`. Skipped hooks during the cooldown are intentionally not logged, so a
+rate-limited provider does not create log spam.
+
 ## Fail-open guarantees
 
 The original tool catalog is left untouched when:
 
 - the TypeSafe key is missing;
 - Jev/TypeSafe times out or returns an error;
+- the provider is inside a 429 cooldown window;
 - validated evidence cannot be produced;
 - confidence is below `softThreshold` in `shortlist` mode;
 - an oversized catalog cannot be reduced into a safe semantic family;

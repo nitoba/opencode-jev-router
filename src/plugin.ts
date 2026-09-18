@@ -1,8 +1,10 @@
 import { Plugin } from "@opencode/plugin";
+import { ProviderError } from "@nitoba/questions";
 import { parseConfig } from "./config.ts";
 import { createLogger, errorMessage } from "./logger.ts";
 import { createRoutingPlan } from "./policy.ts";
 import { createDecisionModel } from "./provider.ts";
+import { RateLimitCircuitBreaker } from "./rate-limit.ts";
 import { createJevRouter, RouterCapacityError } from "./router.ts";
 import { buildRouterState } from "./state.ts";
 import { clearTools, keepOnlyTools, mergeModelOptions, toolCriteriaChars } from "./tools.ts";
@@ -13,6 +15,10 @@ function readEnvironment(name: string): string | undefined {
     readonly process?: { readonly env?: Readonly<Record<string, string | undefined>> };
   };
   return host.process?.env?.[name];
+}
+
+function isRateLimitError(error: unknown): error is ProviderError {
+  return error instanceof ProviderError && error.status === 429;
 }
 
 function routingTrace(
@@ -95,12 +101,24 @@ export default Plugin.define({
 
     const model = createDecisionModel(config, apiKey);
     const router = createJevRouter(model, config);
+    const rateLimit = new RateLimitCircuitBreaker();
 
     const registration = await ctx.session.hook("context", async (event) => {
       const catalogSize = Object.keys(event.tools).length;
       if (catalogSize < config.minTools) {
         logger.debug(routingTrace(event, config.mode, catalogSize, "too-few-tools"));
         return;
+      }
+
+      const attempt = rateLimit.attempt();
+      if (!attempt.allowed) return;
+
+      if (attempt.probe) {
+        logger.event("router.rate_limit.probe", {
+          sessionID: event.sessionID,
+          provider: config.provider,
+          model: config.model,
+        });
       }
 
       const tools = event.tools satisfies ToolCatalog;
@@ -117,6 +135,16 @@ export default Plugin.define({
         });
 
         const evaluation = await router.evaluate(state, tools);
+        const recovered = rateLimit.succeeded();
+        if (recovered) {
+          logger.event("router.rate_limit.recovered", {
+            sessionID: event.sessionID,
+            provider: config.provider,
+            model: config.model,
+            ...recovered,
+          });
+        }
+
         const measured = withTokenDensity(metrics, evaluation.usage.inputTokens, catalogSize);
         const plan = createRoutingPlan(evaluation, Object.keys(event.tools), config);
         const trace: RoutingTrace = {
@@ -180,6 +208,7 @@ export default Plugin.define({
         });
       } catch (error) {
         if (error instanceof RouterCapacityError) {
+          if (attempt.probe) rateLimit.failedProbe();
           logger.debug(routingTrace(event, config.mode, catalogSize, "catalog-too-large"));
           return;
         }
@@ -189,6 +218,25 @@ export default Plugin.define({
           sessionID: event.sessionID,
           error: message,
         });
+
+        if (isRateLimitError(error)) {
+          const opened = rateLimit.rateLimited();
+          logger.event("router.rate_limit", {
+            sessionID: event.sessionID,
+            provider: config.provider,
+            model: config.model,
+            status: error.status,
+            ...opened,
+          });
+          logger.warnOnce(
+            `rate-limit:${opened.consecutiveRateLimits}`,
+            `Jev rate limited the router; routing is paused for ${Math.round(opened.cooldownMs / 1_000)}s and OpenCode will keep its normal tool selection.`,
+          );
+          return;
+        }
+
+        if (attempt.probe) rateLimit.failedProbe();
+
         logger.warnOnce(
           `routing:${message}`,
           `Jev routing failed; falling back to OpenCode's normal tool selection. ${message}`,
