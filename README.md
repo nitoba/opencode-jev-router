@@ -123,8 +123,8 @@ Then reference the local package from `opencode.jsonc`:
 }
 ```
 
-OpenCode 2 also accepts Git package specifications. After cloning/installing dependencies, a Git
-install runs this package's `prepare` script and builds `dist`:
+OpenCode 2 also accepts Git package specifications. Git installs use the prebuilt `dist/` committed
+in this repository, so OpenCode does not need Bun or the package's devDependencies to install it:
 
 ```sh
 opencode plugin add github:nitoba/opencode-jev-router
