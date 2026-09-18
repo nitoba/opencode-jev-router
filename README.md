@@ -112,13 +112,13 @@ Then reference the local package from `opencode.jsonc`:
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugins": [
-    {
-      "package": "/absolute/path/to/opencode-jev-router",
-      "options": {
+  "plugin": [
+    [
+      "/absolute/path/to/opencode-jev-router",
+      {
         "mode": "shortlist",
       },
-    },
+    ],
   ],
 }
 ```
@@ -137,10 +137,10 @@ A practical starting point:
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugins": [
-    {
-      "package": "github:nitoba/opencode-jev-router",
-      "options": {
+  "plugin": [
+    [
+      "github:nitoba/opencode-jev-router",
+      {
         "mode": "shortlist",
 
         "hardThreshold": 0.8,
@@ -158,7 +158,7 @@ A practical starting point:
           },
         },
       },
-    },
+    ],
   ],
 }
 ```
