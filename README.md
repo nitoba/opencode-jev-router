@@ -175,7 +175,30 @@ route.
 
 For Vercel, `baseURL` and `model` can be omitted; those values are the defaults.
 
-`apiKeyEnv` is the name of an environment variable, never the API key itself.
+`apiKeyEnv` is the name of an environment variable. If you intentionally want to store the credential in the OpenCode config, use `apiKey` instead. Do not use both. Environment variables remain the recommended option for secrets.
+
+### Inline API key
+
+If the config is private and you explicitly want to keep the credential there:
+
+```jsonc
+{
+  "plugins": [
+    {
+      "package": "github:nitoba/opencode-jev-router",
+      "options": {
+        "provider": "vercel",
+        "apiKey": "your-vercel-ai-gateway-key",
+        "mode": "observe",
+        "debug": true
+      }
+    }
+  ]
+}
+```
+
+The API key itself is never included in plugin debug events. Prefer `apiKeyEnv` when the config may
+be committed or shared.
 
 ### Debugging
 
@@ -200,7 +223,7 @@ results.
 | Option          | Default           | Meaning                                                        |
 | --------------- | ----------------- | -------------------------------------------------------------- |
 | `provider`      | `"typesafe"`      | `typesafe` for System One or `vercel` for Vercel Evaluation V4 |
-| `apiKeyEnv`     | provider-specific | TypeSafe: `TYPESAFE_API_KEY`; Vercel: `AI_GATEWAY_API_KEY`     |
+| `apiKey`        | unset             | Inline provider credential; never emitted to debug logs         |\n| `apiKeyEnv`     | provider-specific | Name of the environment variable containing the credential      |
 | `model`         | provider-specific | TypeSafe: `jev-latest`; Vercel: `typesafe-ai/jev`              |
 | `baseURL`       | provider default  | Custom endpoint using the selected provider protocol           |
 | `mode`          | `"shortlist"`     | `observe`, `shortlist`, or `strict`                            |

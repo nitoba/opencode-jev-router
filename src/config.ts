@@ -3,12 +3,19 @@ import type { RouterConfig } from "./types.ts";
 
 const probability = z.number().finite().min(0).max(1);
 const modelOptions = z.record(z.string().min(1), z.record(z.string().min(1), z.unknown()));
+const environmentVariable = z
+  .string()
+  .regex(
+    /^[A-Za-z_][A-Za-z0-9_]*$/,
+    "apiKeyEnv must be an environment variable name, not the API key value",
+  );
 
 const optionsSchema = z
   .object({
     mode: z.enum(["observe", "shortlist", "strict"]).default("shortlist"),
     provider: z.enum(["typesafe", "vercel"]).default("typesafe"),
-    apiKeyEnv: z.string().min(1).optional(),
+    apiKey: z.string().min(1).optional(),
+    apiKeyEnv: environmentVariable.optional(),
     model: z.string().min(1).optional(),
     baseURL: z.string().url().optional(),
     timeout: z.union([z.string().min(1), z.number().int().positive()]).default("2 seconds"),
@@ -24,6 +31,14 @@ const optionsSchema = z
   })
   .strict()
   .superRefine((value, context) => {
+    if (value.apiKey !== undefined && value.apiKeyEnv !== undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["apiKey"],
+        message: "Use either apiKey or apiKeyEnv, not both",
+      });
+    }
+
     if (value.softThreshold > value.hardThreshold) {
       context.addIssue({
         code: "custom",
@@ -75,18 +90,21 @@ export const DEFAULT_CONFIG = Object.freeze({
   maxToolDescriptionChars: 900,
   debug: false,
   modelOptions: {},
-} satisfies Omit<RouterConfig, "baseURL">);
+} satisfies Omit<RouterConfig, "apiKey" | "baseURL">);
 
 export function parseConfig(input: unknown): RouterConfig {
   const parsed = optionsSchema.parse(input ?? {});
-  const apiKeyEnv =
-    parsed.apiKeyEnv ?? (parsed.provider === "vercel" ? "AI_GATEWAY_API_KEY" : "TYPESAFE_API_KEY");
+  const defaultApiKeyEnv =
+    parsed.provider === "vercel" ? "AI_GATEWAY_API_KEY" : "TYPESAFE_API_KEY";
   const model = parsed.model ?? (parsed.provider === "vercel" ? "typesafe-ai/jev" : "jev-latest");
 
   return {
     mode: parsed.mode,
     provider: parsed.provider,
-    apiKeyEnv,
+    ...(parsed.apiKey === undefined ? {} : { apiKey: parsed.apiKey }),
+    ...(parsed.apiKey !== undefined
+      ? {}
+      : { apiKeyEnv: parsed.apiKeyEnv ?? defaultApiKeyEnv }),
     model,
     ...(parsed.baseURL === undefined ? {} : { baseURL: parsed.baseURL }),
     timeout: parsed.timeout,

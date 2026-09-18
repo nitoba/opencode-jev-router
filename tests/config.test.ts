@@ -6,6 +6,34 @@ describe("parseConfig", () => {
     expect(parseConfig({})).toEqual(DEFAULT_CONFIG);
   });
 
+  test("accepts an inline API key without exposing an environment variable name", () => {
+    const config = parseConfig({
+      provider: "vercel",
+      apiKey: "secret-value",
+    });
+
+    expect(config.apiKey).toBe("secret-value");
+    expect(config.apiKeyEnv).toBeUndefined();
+  });
+
+  test("rejects API key values passed through apiKeyEnv", () => {
+    expect(() =>
+      parseConfig({
+        provider: "vercel",
+        apiKeyEnv: "sk-example.secret",
+      }),
+    ).toThrow("environment variable name");
+  });
+
+  test("rejects configuring apiKey and apiKeyEnv together", () => {
+    expect(() =>
+      parseConfig({
+        apiKey: "secret-value",
+        apiKeyEnv: "AI_GATEWAY_API_KEY",
+      }),
+    ).toThrow("either apiKey or apiKeyEnv");
+  });
+
   test("uses Vercel evaluation defaults when provider is vercel", () => {
     const config = parseConfig({ provider: "vercel" });
     expect(config.provider).toBe("vercel");

@@ -42,20 +42,21 @@ export default Plugin.define({
   async setup(ctx) {
     const config = parseConfig(ctx.options);
     const logger = createLogger(config.debug, ctx.location.directory);
-    const apiKey = readEnvironment(config.apiKeyEnv);
+    const apiKey = config.apiKey ?? (config.apiKeyEnv ? readEnvironment(config.apiKeyEnv) : undefined);
+    const credentialSource = config.apiKey === undefined ? "environment" : "inline";
 
     logger.event("plugin.loaded", {
       provider: config.provider,
       model: config.model,
       mode: config.mode,
-      apiKeyEnv: config.apiKeyEnv,
+      credentialSource,
       ...(logger.file === undefined ? {} : { logFile: logger.file }),
     });
 
     if (!apiKey) {
       logger.warnOnce(
         "missing-api-key",
-        `${config.apiKeyEnv} is not set; Jev routing is disabled and OpenCode will keep its normal tool selection.`,
+        `Provider credentials are unavailable; Jev routing is disabled and OpenCode will keep its normal tool selection.`,
       );
       return;
     }
