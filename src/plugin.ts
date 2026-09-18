@@ -42,7 +42,8 @@ export default Plugin.define({
   async setup(ctx) {
     const config = parseConfig(ctx.options);
     const logger = createLogger(config.debug, ctx.location.directory);
-    const apiKey = config.apiKey ?? (config.apiKeyEnv ? readEnvironment(config.apiKeyEnv) : undefined);
+    const apiKey =
+      config.apiKey ?? (config.apiKeyEnv ? readEnvironment(config.apiKeyEnv) : undefined);
     const credentialSource = config.apiKey === undefined ? "environment" : "inline";
 
     logger.event("plugin.loaded", {

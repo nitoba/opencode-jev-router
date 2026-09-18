@@ -7,6 +7,7 @@ import * as Vercel from "@nitoba/questions/providers/vercel";
 //#region src/config.ts
 const probability = z.number().finite().min(0).max(1);
 const modelOptions = z.record(z.string().min(1), z.record(z.string().min(1), z.unknown()));
+const environmentVariable = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "apiKeyEnv must be an environment variable name, not the API key value");
 const optionsSchema = z.object({
 	mode: z.enum([
 		"observe",
@@ -14,7 +15,8 @@ const optionsSchema = z.object({
 		"strict"
 	]).default("shortlist"),
 	provider: z.enum(["typesafe", "vercel"]).default("typesafe"),
-	apiKeyEnv: z.string().min(1).optional(),
+	apiKey: z.string().min(1).optional(),
+	apiKeyEnv: environmentVariable.optional(),
 	model: z.string().min(1).optional(),
 	baseURL: z.string().url().optional(),
 	timeout: z.union([z.string().min(1), z.number().int().positive()]).default("2 seconds"),
@@ -28,6 +30,11 @@ const optionsSchema = z.object({
 	debug: z.boolean().default(false),
 	modelOptions: modelOptions.default({})
 }).strict().superRefine((value, context) => {
+	if (value.apiKey !== void 0 && value.apiKeyEnv !== void 0) context.addIssue({
+		code: "custom",
+		path: ["apiKey"],
+		message: "Use either apiKey or apiKeyEnv, not both"
+	});
 	if (value.softThreshold > value.hardThreshold) context.addIssue({
 		code: "custom",
 		path: ["softThreshold"],
@@ -64,12 +71,13 @@ const DEFAULT_CONFIG = Object.freeze({
 });
 function parseConfig(input) {
 	const parsed = optionsSchema.parse(input ?? {});
-	const apiKeyEnv = parsed.apiKeyEnv ?? (parsed.provider === "vercel" ? "AI_GATEWAY_API_KEY" : "TYPESAFE_API_KEY");
+	const defaultApiKeyEnv = parsed.provider === "vercel" ? "AI_GATEWAY_API_KEY" : "TYPESAFE_API_KEY";
 	const model = parsed.model ?? (parsed.provider === "vercel" ? "typesafe-ai/jev" : "jev-latest");
 	return {
 		mode: parsed.mode,
 		provider: parsed.provider,
-		apiKeyEnv,
+		...parsed.apiKey === void 0 ? {} : { apiKey: parsed.apiKey },
+		...parsed.apiKey !== void 0 ? {} : { apiKeyEnv: parsed.apiKeyEnv ?? defaultApiKeyEnv },
 		model,
 		...parsed.baseURL === void 0 ? {} : { baseURL: parsed.baseURL },
 		timeout: parsed.timeout,
@@ -547,16 +555,17 @@ var plugin_default = Plugin.define({
 	async setup(ctx) {
 		const config = parseConfig(ctx.options);
 		const logger = createLogger(config.debug, ctx.location.directory);
-		const apiKey = readEnvironment(config.apiKeyEnv);
+		const apiKey = config.apiKey ?? (config.apiKeyEnv ? readEnvironment(config.apiKeyEnv) : void 0);
+		const credentialSource = config.apiKey === void 0 ? "environment" : "inline";
 		logger.event("plugin.loaded", {
 			provider: config.provider,
 			model: config.model,
 			mode: config.mode,
-			apiKeyEnv: config.apiKeyEnv,
+			credentialSource,
 			...logger.file === void 0 ? {} : { logFile: logger.file }
 		});
 		if (!apiKey) {
-			logger.warnOnce("missing-api-key", `${config.apiKeyEnv} is not set; Jev routing is disabled and OpenCode will keep its normal tool selection.`);
+			logger.warnOnce("missing-api-key", `Provider credentials are unavailable; Jev routing is disabled and OpenCode will keep its normal tool selection.`);
 			return;
 		}
 		const router = createJevRouter(createDecisionModel(config, apiKey), config);

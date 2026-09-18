@@ -94,17 +94,14 @@ export const DEFAULT_CONFIG = Object.freeze({
 
 export function parseConfig(input: unknown): RouterConfig {
   const parsed = optionsSchema.parse(input ?? {});
-  const defaultApiKeyEnv =
-    parsed.provider === "vercel" ? "AI_GATEWAY_API_KEY" : "TYPESAFE_API_KEY";
+  const defaultApiKeyEnv = parsed.provider === "vercel" ? "AI_GATEWAY_API_KEY" : "TYPESAFE_API_KEY";
   const model = parsed.model ?? (parsed.provider === "vercel" ? "typesafe-ai/jev" : "jev-latest");
 
   return {
     mode: parsed.mode,
     provider: parsed.provider,
     ...(parsed.apiKey === undefined ? {} : { apiKey: parsed.apiKey }),
-    ...(parsed.apiKey !== undefined
-      ? {}
-      : { apiKeyEnv: parsed.apiKeyEnv ?? defaultApiKeyEnv }),
+    ...(parsed.apiKey !== undefined ? {} : { apiKeyEnv: parsed.apiKeyEnv ?? defaultApiKeyEnv }),
     model,
     ...(parsed.baseURL === undefined ? {} : { baseURL: parsed.baseURL }),
     timeout: parsed.timeout,

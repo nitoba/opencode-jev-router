@@ -190,10 +190,10 @@ If the config is private and you explicitly want to keep the credential there:
         "provider": "vercel",
         "apiKey": "your-vercel-ai-gateway-key",
         "mode": "observe",
-        "debug": true
-      }
-    }
-  ]
+        "debug": true,
+      },
+    },
+  ],
 }
 ```
 
@@ -223,7 +223,7 @@ results.
 | Option          | Default           | Meaning                                                        |
 | --------------- | ----------------- | -------------------------------------------------------------- |
 | `provider`      | `"typesafe"`      | `typesafe` for System One or `vercel` for Vercel Evaluation V4 |
-| `apiKey`        | unset             | Inline provider credential; never emitted to debug logs         |\n| `apiKeyEnv`     | provider-specific | Name of the environment variable containing the credential      |
+| `apiKey`        | unset             | Inline provider credential; never emitted to debug logs        | \n  | `apiKeyEnv` | provider-specific | Name of the environment variable containing the credential |
 | `model`         | provider-specific | TypeSafe: `jev-latest`; Vercel: `typesafe-ai/jev`              |
 | `baseURL`       | provider default  | Custom endpoint using the selected provider protocol           |
 | `mode`          | `"shortlist"`     | `observe`, `shortlist`, or `strict`                            |

@@ -10,6 +10,7 @@ declare const optionsSchema: z.ZodObject<{
         typesafe: "typesafe";
         vercel: "vercel";
     }>>;
+    apiKey: z.ZodOptional<z.ZodString>;
     apiKeyEnv: z.ZodOptional<z.ZodString>;
     model: z.ZodOptional<z.ZodString>;
     baseURL: z.ZodOptional<z.ZodString>;

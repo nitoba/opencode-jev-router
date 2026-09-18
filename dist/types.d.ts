@@ -23,7 +23,8 @@ export interface RouterState extends JsonObject {
 export interface RouterConfig {
     readonly mode: RouterMode;
     readonly provider: RouterProvider;
-    readonly apiKeyEnv: string;
+    readonly apiKey?: string;
+    readonly apiKeyEnv?: string;
     readonly model: string;
     readonly baseURL?: string;
     readonly timeout: string | number;
