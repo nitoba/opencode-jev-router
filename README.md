@@ -236,26 +236,27 @@ operational state and tool outcomes.
 
 ### Options
 
-| Option | Default | Meaning |
-| --- | --- | --- |
-| `provider` | `"typesafe"` | `typesafe` for System One or `vercel` for Vercel Evaluation V4 |
-| `apiKey` | unset | Inline provider credential; never emitted to debug logs |
-| `apiKeyEnv` | provider-specific | Name of the environment variable containing the credential |
-| `model` | provider-specific | TypeSafe: `jev-latest`; Vercel: `typesafe-ai/jev` |
-| `baseURL` | provider default | Custom endpoint using the selected provider protocol |
-| `mode` | `"shortlist"` | `observe`, `shortlist`, or `strict` |
-| `timeout` | `"2 seconds"` | Total Questions/provider request budget |
-| `retry` | `false` | HTTP retry policy |
-| `hardThreshold` | `0.8` | Expose only the selected tool at or above this confidence |
-| `softThreshold` | `0.55` | Expose the top-K tools at or above this confidence |
-| `doneThreshold` | `0.7` | Evidence required before removing all tools |
-| `topK` | `3` | Medium-confidence shortlist size |
-| `minTools` | `2` | Skip Jev when the catalog is already smaller |
-| `maxToolDescriptionChars` | `600` | Maximum compact description size per tool sent to Jev |
-| `debug` | `false` | Write sanitized routing events to the project debug log |
+| Option                    | Default           | Meaning                                                        |
+| ------------------------- | ----------------- | -------------------------------------------------------------- |
+| `provider`                | `"typesafe"`      | `typesafe` for System One or `vercel` for Vercel Evaluation V4 |
+| `apiKey`                  | unset             | Inline provider credential; never emitted to debug logs        |
+| `apiKeyEnv`               | provider-specific | Name of the environment variable containing the credential     |
+| `model`                   | provider-specific | TypeSafe: `jev-latest`; Vercel: `typesafe-ai/jev`              |
+| `baseURL`                 | provider default  | Custom endpoint using the selected provider protocol           |
+| `mode`                    | `"shortlist"`     | `observe`, `shortlist`, or `strict`                            |
+| `timeout`                 | `"2 seconds"`     | Total Questions/provider request budget                        |
+| `retry`                   | `false`           | HTTP retry policy                                              |
+| `hardThreshold`           | `0.8`             | Expose only the selected tool at or above this confidence      |
+| `softThreshold`           | `0.55`            | Expose the top-K tools at or above this confidence             |
+| `doneThreshold`           | `0.7`             | Evidence required before removing all tools                    |
+| `topK`                    | `3`               | Medium-confidence shortlist size                               |
+| `minTools`                | `2`               | Skip Jev when the catalog is already smaller                   |
+| `maxToolDescriptionChars` | `600`             | Maximum compact description size per tool sent to Jev          |
+| `debug`                   | `false`           | Write sanitized routing events to the project debug log        |
 
 `softThreshold` must be less than or equal to `hardThreshold`. Unknown configuration keys are
 rejected so typos do not silently change routing behavior.
+
 ## Modes
 
 ### `observe`

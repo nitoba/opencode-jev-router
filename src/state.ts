@@ -86,11 +86,7 @@ export function buildRouterState(messages: readonly unknown[]): RouterState {
     if (message.role === "assistant") {
       const text = textParts(content);
       if (text) {
-        pushRecent(
-          assistantMessages,
-          clip(text, MAX_ASSISTANT_TEXT_CHARS),
-          MAX_ASSISTANT_MESSAGES,
-        );
+        pushRecent(assistantMessages, clip(text, MAX_ASSISTANT_TEXT_CHARS), MAX_ASSISTANT_MESSAGES);
       }
       if (!Array.isArray(content)) continue;
 

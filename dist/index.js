@@ -26,7 +26,7 @@ const optionsSchema = z.object({
 	doneThreshold: probability.default(.7),
 	topK: z.number().int().min(1).max(254).default(3),
 	minTools: z.number().int().min(1).default(2),
-	maxToolDescriptionChars: z.number().int().min(160).max(4e3).default(900),
+	maxToolDescriptionChars: z.number().int().min(160).max(4e3).default(600),
 	debug: z.boolean().default(false),
 	modelOptions: modelOptions.default({})
 }).strict().superRefine((value, context) => {
@@ -65,7 +65,7 @@ const DEFAULT_CONFIG = Object.freeze({
 	doneThreshold: .7,
 	topK: 3,
 	minTools: 2,
-	maxToolDescriptionChars: 900,
+	maxToolDescriptionChars: 600,
 	debug: false,
 	modelOptions: {}
 });
@@ -162,6 +162,9 @@ function clip$1(value, max) {
 	if (value.length <= max) return value;
 	return `${value.slice(0, Math.max(0, max - 14))}…[truncated]`;
 }
+function compact(value) {
+	return value.replace(/\s+/g, " ").trim();
+}
 function schemaType(schema) {
 	if (!isRecord$1(schema)) return "unknown";
 	if (typeof schema.type === "string") return schema.type;
@@ -185,11 +188,14 @@ function summarizeInputSchema(input) {
 	return `inputs: ${fields.join(", ")}${suffix}`;
 }
 function describeTool(name, tool, maxChars) {
-	return clip$1(`${tool.description.trim() || "No description provided."} ${summarizeInputSchema(tool.input)} Tool name: ${name}.`, maxChars);
+	return clip$1(`${compact(tool.description) || `Tool ${name}.`} ${summarizeInputSchema(tool.input)}`, maxChars);
 }
 function toolCriteria(tools, maxChars) {
 	if (Object.hasOwn(tools, "__jev_router_respond_to_user__")) throw new Error(`Tool name "${RESPOND_TO_USER}" is reserved by opencode-jev-router.`);
 	return Object.fromEntries(Object.entries(tools).map(([name, tool]) => [name, describeTool(name, tool, maxChars)]));
+}
+function toolCriteriaChars(tools, maxChars) {
+	return JSON.stringify(toolCriteria(tools, maxChars)).length;
 }
 function toolFamily(name) {
 	if (name.includes("__")) {
@@ -214,9 +220,13 @@ function groupToolsByFamily(tools) {
 }
 function describeFamily(family, tools, maxChars) {
 	const entries = Object.entries(tools);
-	const sample = entries.slice(0, 8).map(([name, tool]) => `${name}: ${tool.description.trim() || "No description"}`).join(" | ");
-	const suffix = entries.length > 8 ? ` | … ${entries.length - 8} more tools` : "";
-	return clip$1(`Tool family "${family}" with ${entries.length} tool(s). ${sample}${suffix}`, Math.max(maxChars, 1200));
+	const sampleCount = Math.min(entries.length, 8);
+	const perToolChars = Math.max(48, Math.floor(maxChars / Math.max(sampleCount, 1)) - 24);
+	const sample = entries.slice(0, sampleCount).map(([name, tool]) => {
+		return `${name}: ${clip$1(compact(tool.description) || "No description", perToolChars)}`;
+	}).join(" | ");
+	const suffix = entries.length > sampleCount ? ` | … ${entries.length - sampleCount} more` : "";
+	return clip$1(`Family ${family}: ${entries.length} tool(s). ${sample}${suffix}`, maxChars);
 }
 function keepOnlyTools(tools, allowed) {
 	const keep = new Set(allowed);
@@ -243,19 +253,15 @@ function mergeModelOptions(target, source) {
 const MAX_DIRECT_TOOLS = 254;
 const MAX_SECOND_STAGE_TOOLS = 255;
 const NEXT_TOOL_QUESTION = `
-Choose the single tool the coding agent should call NEXT to make progress on the user's current request.
-
-Use the current request, actions already taken and their results. Respect dependencies: inspect or look
-things up before a mutation when needed. Do not repeat an action that already completed successfully.
-A failed action may be retried only when that is the appropriate next step. Choose the respond option
-only when no further tool call is needed.
+Choose the single tool the coding agent should call NEXT. Use the current request and recent tool
+outcomes. Respect dependencies and avoid repeating successful actions. Retry a failed action only
+when appropriate. Choose respond only when no further tool call is needed.
 `.trim();
 const DONE_QUESTION = `
-Has every action required to satisfy the user's current request already been completed successfully?
-Return false when any required lookup, edit, command, test, commit, push, pull request, message or other
-action is still missing, or when a required action failed and still needs recovery.
+Are all actions required by the current request already complete and successful? Return false when
+any required lookup, edit, command, test, commit, push, message or recovery step is still missing.
 `.trim();
-const RESPOND_DESCRIPTION = "No tool call is needed now: the user's current request is complete, or none of the available tools applies. The assistant should answer the user.";
+const RESPOND_DESCRIPTION = "No tool call is needed: the current request is complete or no available tool applies.";
 var RouterCapacityError = class extends Error {
 	catalogSize;
 	constructor(message, catalogSize) {
@@ -308,8 +314,8 @@ function createJevRouter(model, config) {
 		const evaluation = await questions.about(state).evidence({
 			nextTool: Question.choice(NEXT_TOOL_QUESTION, withRespond(toolCriteria(tools, config.maxToolDescriptionChars))),
 			done: Question.boolean(DONE_QUESTION, {
-				true: "Every required action is already complete and successful.",
-				false: "At least one required action is missing, failed, or still needs follow-up."
+				true: "Every required action is complete and successful.",
+				false: "At least one required action is missing, failed, or needs follow-up."
 			})
 		});
 		return {
@@ -332,8 +338,8 @@ function createJevRouter(model, config) {
 		const familyEvaluation = await questions.about(state).evidence({
 			nextFamily: Question.choice("Which tool family contains the single best NEXT action for the coding agent?", withRespond(familyCriteria)),
 			done: Question.boolean(DONE_QUESTION, {
-				true: "Every required action is already complete and successful.",
-				false: "At least one required action is missing, failed, or still needs follow-up."
+				true: "Every required action is complete and successful.",
+				false: "At least one required action is missing, failed, or needs follow-up."
 			})
 		});
 		const familyAnswer = familyEvaluation.answers.nextFamily;
@@ -369,7 +375,7 @@ function createJevRouter(model, config) {
 				selectedFamily
 			};
 		}
-		const toolEvaluation = await questions.about(state).evidence({ nextTool: Question.choice(`Within the already selected "${selectedFamily}" family, which tool should the coding agent call NEXT?`, toolCriteria(selectedTools, config.maxToolDescriptionChars)) });
+		const toolEvaluation = await questions.about(state).evidence({ nextTool: Question.choice(`Within the selected "${selectedFamily}" family, which tool should run NEXT?`, toolCriteria(selectedTools, config.maxToolDescriptionChars)) });
 		const nextTool = combinedToolAnswer(toolEvaluation.answers.nextTool, familyAnswer);
 		return {
 			nextTool,
@@ -389,8 +395,13 @@ function createJevRouter(model, config) {
 }
 //#endregion
 //#region src/state.ts
-const MAX_TEXT_CHARS = 1200;
-const MAX_RESULT_CHARS = 1600;
+const MAX_USER_MESSAGES = 2;
+const MAX_ASSISTANT_MESSAGES = 2;
+const MAX_ACTIONS = 8;
+const MAX_USER_TEXT_CHARS = 1200;
+const MAX_ASSISTANT_TEXT_CHARS = 600;
+const MAX_ACTION_INPUT_CHARS = 400;
+const MAX_ACTION_RESULT_CHARS = 800;
 function isRecord(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -405,6 +416,10 @@ function printable(value, max) {
 	} catch {
 		return clip(String(value), max);
 	}
+}
+function pushRecent(values, value, max) {
+	values.push(value);
+	if (values.length > max) values.splice(0, values.length - max);
 }
 function textParts(content) {
 	if (!Array.isArray(content)) return "";
@@ -424,7 +439,8 @@ function toolResultValue(result) {
 	};
 }
 /**
-* Convert OpenCode's assembled LLM messages into compact JSON state for semantic routing.
+* Convert OpenCode's assembled LLM messages into a small operational state for semantic routing.
+* Only recent user intent, assistant progress and completed tool outcomes are retained.
 * Reasoning, media, provider metadata and raw binary content are intentionally excluded.
 */
 function buildRouterState(messages) {
@@ -438,12 +454,12 @@ function buildRouterState(messages) {
 		const content = message.content;
 		if (message.role === "user") {
 			const text = textParts(content);
-			if (text) userMessages.push(clip(text, MAX_TEXT_CHARS));
+			if (text) pushRecent(userMessages, clip(text, MAX_USER_TEXT_CHARS), MAX_USER_MESSAGES);
 			continue;
 		}
 		if (message.role === "assistant") {
 			const text = textParts(content);
-			if (text) assistantMessages.push(clip(text, MAX_TEXT_CHARS));
+			if (text) pushRecent(assistantMessages, clip(text, MAX_ASSISTANT_TEXT_CHARS), MAX_ASSISTANT_MESSAGES);
 			if (!Array.isArray(content)) continue;
 			for (const part of content) {
 				if (!isRecord(part) || part.type !== "tool-call" || typeof part.id !== "string" || typeof part.name !== "string") continue;
@@ -451,7 +467,7 @@ function buildRouterState(messages) {
 				pending.set(part.id, {
 					step,
 					tool: part.name,
-					input: printable(part.input, MAX_RESULT_CHARS)
+					input: printable(part.input, MAX_ACTION_INPUT_CHARS)
 				});
 			}
 			continue;
@@ -465,20 +481,19 @@ function buildRouterState(messages) {
 				input: ""
 			};
 			const result = toolResultValue(part.result);
-			actions.push({
+			pushRecent(actions, {
 				...call,
 				status: result.status,
-				result: printable(result.value, MAX_RESULT_CHARS)
-			});
+				result: printable(result.value, MAX_ACTION_RESULT_CHARS)
+			}, MAX_ACTIONS);
 			pending.delete(part.id);
 		}
 	}
-	const recentUsers = userMessages.slice(-4);
 	return {
-		user_request: recentUsers.at(-1) ?? "",
-		prior_user_messages: recentUsers.slice(0, -1),
-		actions_taken: actions.slice(-32),
-		assistant_said: assistantMessages.slice(-8)
+		user_request: userMessages.at(-1) ?? "",
+		prior_user_messages: userMessages.slice(0, -1),
+		actions_taken: actions,
+		assistant_said: assistantMessages
 	};
 }
 //#endregion
@@ -550,6 +565,22 @@ function routingTrace(event, mode, catalogSize, reason) {
 		reason
 	};
 }
+function inputMetrics(state, tools, maxToolDescriptionChars) {
+	return {
+		stateChars: JSON.stringify(state).length,
+		toolCriteriaChars: toolCriteriaChars(tools, maxToolDescriptionChars),
+		actionsCount: state.actions_taken.length,
+		userMessagesCount: state.prior_user_messages.length + (state.user_request.length === 0 ? 0 : 1),
+		assistantMessagesCount: state.assistant_said.length
+	};
+}
+function withTokenDensity(metrics, inputTokens, catalogSize) {
+	if (inputTokens === void 0 || catalogSize === 0) return metrics;
+	return {
+		...metrics,
+		inputTokensPerTool: Math.round(inputTokens / catalogSize * 100) / 100
+	};
+}
 var plugin_default = Plugin.define({
 	id: "opencode-jev-router",
 	async setup(ctx) {
@@ -565,7 +596,7 @@ var plugin_default = Plugin.define({
 			...logger.file === void 0 ? {} : { logFile: logger.file }
 		});
 		if (!apiKey) {
-			logger.warnOnce("missing-api-key", `Provider credentials are unavailable; Jev routing is disabled and OpenCode will keep its normal tool selection.`);
+			logger.warnOnce("missing-api-key", "Provider credentials are unavailable; Jev routing is disabled and OpenCode will keep its normal tool selection.");
 			return;
 		}
 		const router = createJevRouter(createDecisionModel(config, apiKey), config);
@@ -577,14 +608,17 @@ var plugin_default = Plugin.define({
 			}
 			const tools = event.tools;
 			const state = buildRouterState(event.messages);
-			logger.event("jev.request.started", {
-				sessionID: event.sessionID,
-				catalogSize,
-				provider: config.provider,
-				model: config.model
-			});
 			try {
+				const metrics = inputMetrics(state, tools, config.maxToolDescriptionChars);
+				logger.event("jev.request.started", {
+					sessionID: event.sessionID,
+					catalogSize,
+					provider: config.provider,
+					model: config.model,
+					...metrics
+				});
 				const evaluation = await router.evaluate(state, tools);
+				const measured = withTokenDensity(metrics, evaluation.usage.inputTokens, catalogSize);
 				const plan = createRoutingPlan(evaluation, Object.keys(event.tools), config);
 				const trace = {
 					...routingTrace(event, config.mode, catalogSize, plan.reason),
@@ -597,6 +631,7 @@ var plugin_default = Plugin.define({
 					latencyMs: evaluation.latencyMs,
 					calls: evaluation.calls,
 					usage: evaluation.usage,
+					...measured,
 					...evaluation.selectedFamily === void 0 ? {} : { selectedFamily: evaluation.selectedFamily }
 				};
 				logger.event("jev.request.completed", {
@@ -604,7 +639,10 @@ var plugin_default = Plugin.define({
 					latencyMs: evaluation.latencyMs,
 					calls: evaluation.calls,
 					confidence: evaluation.nextTool.confidence,
-					doneProbability: evaluation.done.probability
+					doneProbability: evaluation.done.probability,
+					...evaluation.usage.inputTokens === void 0 ? {} : { inputTokens: evaluation.usage.inputTokens },
+					...evaluation.usage.outputTokens === void 0 ? {} : { outputTokens: evaluation.usage.outputTokens },
+					...measured
 				});
 				logger.debug(trace);
 				if (config.mode === "observe" || plan.kind === "fallback") return;
@@ -644,6 +682,6 @@ var plugin_default = Plugin.define({
 	}
 });
 //#endregion
-export { DEFAULT_CONFIG, DONE_QUESTION, NEXT_TOOL_QUESTION, RESPOND_TO_USER, RouterCapacityError, buildRouterState, createJevRouter, createRoutingPlan, plugin_default as default, describeFamily, describeTool, groupToolsByFamily, keepOnlyTools, mergeModelOptions, parseConfig, toolCriteria, toolFamily };
+export { DEFAULT_CONFIG, DONE_QUESTION, NEXT_TOOL_QUESTION, RESPOND_TO_USER, RouterCapacityError, buildRouterState, createJevRouter, createRoutingPlan, plugin_default as default, describeFamily, describeTool, groupToolsByFamily, keepOnlyTools, mergeModelOptions, parseConfig, toolCriteria, toolCriteriaChars, toolFamily };
 
 //# sourceMappingURL=index.js.map

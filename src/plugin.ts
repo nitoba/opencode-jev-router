@@ -5,12 +5,7 @@ import { createRoutingPlan } from "./policy.ts";
 import { createDecisionModel } from "./provider.ts";
 import { createJevRouter, RouterCapacityError } from "./router.ts";
 import { buildRouterState } from "./state.ts";
-import {
-  clearTools,
-  keepOnlyTools,
-  mergeModelOptions,
-  toolCriteriaChars,
-} from "./tools.ts";
+import { clearTools, keepOnlyTools, mergeModelOptions, toolCriteriaChars } from "./tools.ts";
 import type { RoutingInputMetrics, RoutingTrace, ToolCatalog } from "./types.ts";
 
 function readEnvironment(name: string): string | undefined {
@@ -55,8 +50,7 @@ function inputMetrics(
     stateChars: JSON.stringify(state).length,
     toolCriteriaChars: toolCriteriaChars(tools, maxToolDescriptionChars),
     actionsCount: state.actions_taken.length,
-    userMessagesCount:
-      state.prior_user_messages.length + (state.user_request.length === 0 ? 0 : 1),
+    userMessagesCount: state.prior_user_messages.length + (state.user_request.length === 0 ? 0 : 1),
     assistantMessagesCount: state.assistant_said.length,
   };
 }

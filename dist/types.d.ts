@@ -53,6 +53,14 @@ export interface RoutingEvaluation {
     readonly catalogSize: number;
     readonly selectedFamily?: string;
 }
+export interface RoutingInputMetrics {
+    readonly stateChars: number;
+    readonly toolCriteriaChars: number;
+    readonly actionsCount: number;
+    readonly userMessagesCount: number;
+    readonly assistantMessagesCount: number;
+    readonly inputTokensPerTool?: number;
+}
 export type RoutingPlan = {
     readonly kind: "respond";
     readonly selected: typeof RESPOND_TO_USER;
@@ -90,5 +98,11 @@ export interface RoutingTrace {
     readonly calls?: 1 | 2;
     readonly usage?: Usage;
     readonly selectedFamily?: string;
+    readonly stateChars?: number;
+    readonly toolCriteriaChars?: number;
+    readonly actionsCount?: number;
+    readonly userMessagesCount?: number;
+    readonly assistantMessagesCount?: number;
+    readonly inputTokensPerTool?: number;
 }
 //# sourceMappingURL=types.d.ts.map
