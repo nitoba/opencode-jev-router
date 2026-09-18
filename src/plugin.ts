@@ -5,8 +5,13 @@ import { createRoutingPlan } from "./policy.ts";
 import { createDecisionModel } from "./provider.ts";
 import { createJevRouter, RouterCapacityError } from "./router.ts";
 import { buildRouterState } from "./state.ts";
-import { clearTools, keepOnlyTools, mergeModelOptions } from "./tools.ts";
-import type { RoutingTrace, ToolCatalog } from "./types.ts";
+import {
+  clearTools,
+  keepOnlyTools,
+  mergeModelOptions,
+  toolCriteriaChars,
+} from "./tools.ts";
+import type { RoutingInputMetrics, RoutingTrace, ToolCatalog } from "./types.ts";
 
 function readEnvironment(name: string): string | undefined {
   const host = globalThis as typeof globalThis & {
@@ -36,6 +41,38 @@ function routingTrace(
   };
 }
 
+function inputMetrics(
+  state: {
+    readonly user_request: string;
+    readonly prior_user_messages: readonly string[];
+    readonly actions_taken: readonly unknown[];
+    readonly assistant_said: readonly string[];
+  },
+  tools: ToolCatalog,
+  maxToolDescriptionChars: number,
+): RoutingInputMetrics {
+  return {
+    stateChars: JSON.stringify(state).length,
+    toolCriteriaChars: toolCriteriaChars(tools, maxToolDescriptionChars),
+    actionsCount: state.actions_taken.length,
+    userMessagesCount:
+      state.prior_user_messages.length + (state.user_request.length === 0 ? 0 : 1),
+    assistantMessagesCount: state.assistant_said.length,
+  };
+}
+
+function withTokenDensity(
+  metrics: RoutingInputMetrics,
+  inputTokens: number | undefined,
+  catalogSize: number,
+): RoutingInputMetrics {
+  if (inputTokens === undefined || catalogSize === 0) return metrics;
+  return {
+    ...metrics,
+    inputTokensPerTool: Math.round((inputTokens / catalogSize) * 100) / 100,
+  };
+}
+
 export default Plugin.define({
   id: "opencode-jev-router",
 
@@ -57,7 +94,7 @@ export default Plugin.define({
     if (!apiKey) {
       logger.warnOnce(
         "missing-api-key",
-        `Provider credentials are unavailable; Jev routing is disabled and OpenCode will keep its normal tool selection.`,
+        "Provider credentials are unavailable; Jev routing is disabled and OpenCode will keep its normal tool selection.",
       );
       return;
     }
@@ -75,15 +112,18 @@ export default Plugin.define({
       const tools = event.tools satisfies ToolCatalog;
       const state = buildRouterState(event.messages);
 
-      logger.event("jev.request.started", {
-        sessionID: event.sessionID,
-        catalogSize,
-        provider: config.provider,
-        model: config.model,
-      });
-
       try {
+        const metrics = inputMetrics(state, tools, config.maxToolDescriptionChars);
+        logger.event("jev.request.started", {
+          sessionID: event.sessionID,
+          catalogSize,
+          provider: config.provider,
+          model: config.model,
+          ...metrics,
+        });
+
         const evaluation = await router.evaluate(state, tools);
+        const measured = withTokenDensity(metrics, evaluation.usage.inputTokens, catalogSize);
         const plan = createRoutingPlan(evaluation, Object.keys(event.tools), config);
         const trace: RoutingTrace = {
           ...routingTrace(event, config.mode, catalogSize, plan.reason),
@@ -100,16 +140,25 @@ export default Plugin.define({
           latencyMs: evaluation.latencyMs,
           calls: evaluation.calls,
           usage: evaluation.usage,
+          ...measured,
           ...(evaluation.selectedFamily === undefined
             ? {}
             : { selectedFamily: evaluation.selectedFamily }),
         };
+
         logger.event("jev.request.completed", {
           sessionID: event.sessionID,
           latencyMs: evaluation.latencyMs,
           calls: evaluation.calls,
           confidence: evaluation.nextTool.confidence,
           doneProbability: evaluation.done.probability,
+          ...(evaluation.usage.inputTokens === undefined
+            ? {}
+            : { inputTokens: evaluation.usage.inputTokens }),
+          ...(evaluation.usage.outputTokens === undefined
+            ? {}
+            : { outputTokens: evaluation.usage.outputTokens }),
+          ...measured,
         });
         logger.debug(trace);
 
