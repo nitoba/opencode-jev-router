@@ -1,6 +1,6 @@
 {
   "name": "opencode-jev-router",
-  "version": "0.1.0-alpha.3",
+  "version": "0.1.0-alpha.4",
   "description": "Jev-powered tool routing for OpenCode 2 using @nitoba/questions.",
   "keywords": [
     "agent",
@@ -66,7 +66,8 @@
     "typescript": "7.0.2"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22",
+    "opencode": ">=2.0.0"
   },
   "packageManager": "bun@1.4.2"
 }

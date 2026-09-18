@@ -90,6 +90,19 @@ calendar
 If the selected family is small enough, a second Jev evaluation chooses the concrete tool. If a
 catalog cannot be reduced safely, routing fails open and the model receives the untouched tool set.
 
+## Requirements
+
+This plugin requires **OpenCode 2.x**. It uses the V2 plugin API and the pre-model context hook that can
+mutate the tool catalog before each model dispatch. OpenCode 1.x does not expose an equivalent hook.
+
+Check your version:
+
+```sh
+opencode --version
+```
+
+If it prints `1.x`, install OpenCode 2 before using this plugin.
+
 ## Install
 
 Set the TypeSafe API key in the environment:
@@ -98,33 +111,7 @@ Set the TypeSafe API key in the environment:
 export TYPESAFE_API_KEY="..."
 ```
 
-For development from this repository:
-
-```sh
-git clone https://github.com/nitoba/opencode-jev-router
-cd opencode-jev-router
-bun install
-bun run build:dist
-```
-
-Then reference the local package from `opencode.jsonc`:
-
-```jsonc
-{
-  "$schema": "https://opencode.ai/config.json",
-  "plugin": [
-    [
-      "/absolute/path/to/opencode-jev-router",
-      {
-        "mode": "shortlist",
-      },
-    ],
-  ],
-}
-```
-
-OpenCode 2 also accepts Git package specifications. Git installs use the prebuilt `dist/` committed
-in this repository, so OpenCode does not need Bun or the package's devDependencies to install it:
+Install the plugin:
 
 ```sh
 opencode plugin add github:nitoba/opencode-jev-router
