@@ -15,6 +15,7 @@ export {
   keepOnlyTools,
   mergeModelOptions,
   toolCriteria,
+  toolCriteriaChars,
   toolFamily,
 } from "./tools.ts";
 export {
@@ -25,6 +26,7 @@ export {
   type RouterMode,
   type RouterState,
   type RoutingEvaluation,
+  type RoutingInputMetrics,
   type RoutingPlan,
   type RoutingTrace,
   type ToolCatalog,
