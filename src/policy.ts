@@ -23,9 +23,8 @@ export function createRoutingPlan(
     }
 
     selected =
-      evaluation.ranked.find(
-        ({ name }) => name !== RESPOND_TO_USER && available.has(name),
-      )?.name ?? "";
+      evaluation.ranked.find(({ name }) => name !== RESPOND_TO_USER && available.has(name))?.name ??
+      "";
   }
 
   if (!selected || !available.has(selected)) {

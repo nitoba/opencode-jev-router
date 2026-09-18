@@ -3,14 +3,14 @@
   "version": "0.1.0-alpha.1",
   "description": "Jev-powered tool routing for OpenCode 2 using @nitoba/questions.",
   "keywords": [
+    "agent",
+    "jev",
     "opencode",
     "plugin",
-    "jev",
-    "typesafe",
-    "tool-calling",
-    "agent",
+    "questions",
     "routing",
-    "questions"
+    "tool-calling",
+    "typesafe"
   ],
   "homepage": "https://github.com/nitoba/opencode-jev-router#readme",
   "bugs": {
@@ -38,10 +38,6 @@
     },
     "./package.json": "./package.json"
   },
-  "engines": {
-    "node": ">=22"
-  },
-  "packageManager": "bun@1.4.2",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "bun test",
@@ -68,5 +64,9 @@
     "publint": "0.3.24",
     "tsdown": "0.23.0",
     "typescript": "7.0.2"
-  }
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "bun@1.4.2"
 }

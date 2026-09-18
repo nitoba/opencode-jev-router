@@ -43,7 +43,10 @@ function textParts(content: unknown): string {
     .trim();
 }
 
-function toolResultValue(result: unknown): { readonly status: RouterAction["status"]; readonly value: unknown } {
+function toolResultValue(result: unknown): {
+  readonly status: RouterAction["status"];
+  readonly value: unknown;
+} {
   if (!isRecord(result)) return { status: "completed", value: result };
   return {
     status: result.type === "error" ? "error" : "completed",

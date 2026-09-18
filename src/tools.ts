@@ -43,11 +43,7 @@ function summarizeInputSchema(input: unknown): string {
   return `inputs: ${fields.join(", ")}${suffix}`;
 }
 
-export function describeTool(
-  name: string,
-  tool: ToolDefinition,
-  maxChars: number,
-): string {
+export function describeTool(name: string, tool: ToolDefinition, maxChars: number): string {
   const description = tool.description.trim() || "No description provided.";
   return clip(`${description} ${summarizeInputSchema(tool.input)} Tool name: ${name}.`, maxChars);
 }
@@ -110,10 +106,7 @@ export function describeFamily(
   );
 }
 
-export function keepOnlyTools<T>(
-  tools: Record<string, T>,
-  allowed: readonly string[],
-): void {
+export function keepOnlyTools<T>(tools: Record<string, T>, allowed: readonly string[]): void {
   const keep = new Set(allowed);
   for (const name of Object.keys(tools)) {
     if (!keep.has(name)) delete tools[name];
@@ -124,7 +117,10 @@ export function clearTools<T>(tools: Record<string, T>): void {
   for (const name of Object.keys(tools)) delete tools[name];
 }
 
-function mergeRecord(target: Record<string, unknown>, source: Readonly<Record<string, unknown>>): void {
+function mergeRecord(
+  target: Record<string, unknown>,
+  source: Readonly<Record<string, unknown>>,
+): void {
   for (const [key, value] of Object.entries(source)) {
     const current = target[key];
     if (isRecord(current) && isRecord(value)) {

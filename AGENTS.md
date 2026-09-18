@@ -9,7 +9,7 @@
 - Do not send chain-of-thought, reasoning parts, provider metadata, credentials or binary content to the routing model. Keep state compact and action-oriented.
 - Never log API keys, prompts, raw tool inputs/results or provider metadata. Debug traces contain only routing metadata, distributions reduced to the selected decision, usage and latency.
 - For more than 254 tools, use the semantic family path only when it reduces the choice set safely. Otherwise fail open; do not invent arbitrary routing certainty.
-- `observe` must never mutate tools or  model options. `shortlist` uses confidence gates. `strict` narrows to one tool but still fails open on provider/runtime errors.
+- `observe` must never mutate tools or model options. `shortlist` uses confidence gates. `strict` narrows to one tool but still fails open on provider/runtime errors.
 - Provider-specific primary-model options are opt-in and only apply after a successful tool-routing decision.
 - Use Bun 1.4.2, TypeScript 7, Oxlint, Oxfmt and tsdown. Run `bun run check` before delivery.
 - Public APIs require tests. Keep pure routing/state/policy logic independent from the OpenCode host so it can be tested without network calls.

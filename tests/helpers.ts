@@ -1,8 +1,4 @@
-import type {
-  AnyQuestion,
-  EvaluationRequest,
-  QuestionModel,
-} from "@nitoba/questions";
+import type { AnyQuestion, EvaluationRequest, QuestionModel } from "@nitoba/questions";
 
 export function fixture(
   answer: (question: AnyQuestion, key: string, request: EvaluationRequest) => unknown,

@@ -64,9 +64,7 @@ export default Plugin.define({
     const registration = await ctx.session.hook("context", async (event) => {
       const catalogSize = Object.keys(event.tools).length;
       if (catalogSize < config.minTools) {
-        logger.debug(
-          routingTrace(event, config.mode, catalogSize, "too-few-tools"),
-        );
+        logger.debug(routingTrace(event, config.mode, catalogSize, "too-few-tools"));
         return;
       }
 
@@ -112,9 +110,7 @@ export default Plugin.define({
         mergeModelOptions(event.options, config.modelOptions[event.model.providerID]);
       } catch (error) {
         if (error instanceof RouterCapacityError) {
-          logger.debug(
-            routingTrace(event, config.mode, catalogSize, "catalog-too-large"),
-          );
+          logger.debug(routingTrace(event, config.mode, catalogSize, "catalog-too-large"));
           return;
         }
 

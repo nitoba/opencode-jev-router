@@ -6,11 +6,7 @@ import {
   type QuestionModel,
   type Usage,
 } from "@nitoba/questions";
-import {
-  describeFamily,
-  groupToolsByFamily,
-  toolCriteria,
-} from "./tools.ts";
+import { describeFamily, groupToolsByFamily, toolCriteria } from "./tools.ts";
 import {
   RESPOND_TO_USER,
   type RouterConfig,
@@ -76,10 +72,7 @@ function withRespond(criteria: Readonly<Record<string, string>>): Readonly<Recor
   };
 }
 
-function singleToolAnswer(
-  name: string,
-  family: ChoiceAnswer<string>,
-): ChoiceAnswer<string> {
+function singleToolAnswer(name: string, family: ChoiceAnswer<string>): ChoiceAnswer<string> {
   return {
     type: "choice",
     choice: name,
@@ -133,10 +126,7 @@ export function createJevRouter(model: QuestionModel, config: RouterConfig): Jev
     };
   }
 
-  async function hierarchical(
-    state: RouterState,
-    tools: ToolCatalog,
-  ): Promise<RoutingEvaluation> {
+  async function hierarchical(state: RouterState, tools: ToolCatalog): Promise<RoutingEvaluation> {
     const started = performance.now();
     const groups = groupToolsByFamily(tools);
     const catalogSize = Object.keys(tools).length;

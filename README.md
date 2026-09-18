@@ -116,10 +116,10 @@ Then reference the local package from `opencode.jsonc`:
     {
       "package": "/absolute/path/to/opencode-jev-router",
       "options": {
-        "mode": "shortlist"
-      }
-    }
-  ]
+        "mode": "shortlist",
+      },
+    },
+  ],
 }
 ```
 
@@ -154,33 +154,33 @@ A practical starting point:
 
         "modelOptions": {
           "openai": {
-            "reasoningEffort": "low"
-          }
-        }
-      }
-    }
-  ]
+            "reasoningEffort": "low",
+          },
+        },
+      },
+    },
+  ],
 }
 ```
 
 ### Options
 
-| Option | Default | Meaning |
-| --- | --- | --- |
-| `mode` | `"shortlist"` | `observe`, `shortlist`, or `strict` |
-| `apiKeyEnv` | `"TYPESAFE_API_KEY"` | Environment variable containing the TypeSafe key |
-| `model` | `"jev-latest"` | TypeSafe System One model |
-| `baseURL` | TypeSafe default | Optional compatible TypeSafe/System One base URL |
-| `timeout` | `"2 seconds"` | Total Questions/TypeSafe request budget |
-| `retry` | `false` | HTTP retries; `0..10` means additional retry count policy |
-| `hardThreshold` | `0.8` | At or above this confidence, expose only the selected tool |
-| `softThreshold` | `0.55` | At or above this confidence, expose the top-K tools |
-| `doneThreshold` | `0.7` | Independent probability required before removing all tools |
-| `topK` | `3` | Shortlist size in the medium-confidence band |
-| `minTools` | `2` | Skip Jev when the catalog is already smaller than this |
-| `maxToolDescriptionChars` | `900` | Bound the description/schema summary sent per tool |
-| `debug` | `false` | Emit routing metadata without prompts, args, results, or credentials |
-| `modelOptions` | `{}` | Provider-ID keyed OpenCode options applied only after successful routing |
+| Option                    | Default              | Meaning                                                                  |
+| ------------------------- | -------------------- | ------------------------------------------------------------------------ |
+| `mode`                    | `"shortlist"`        | `observe`, `shortlist`, or `strict`                                      |
+| `apiKeyEnv`               | `"TYPESAFE_API_KEY"` | Environment variable containing the TypeSafe key                         |
+| `model`                   | `"jev-latest"`       | TypeSafe System One model                                                |
+| `baseURL`                 | TypeSafe default     | Optional compatible TypeSafe/System One base URL                         |
+| `timeout`                 | `"2 seconds"`        | Total Questions/TypeSafe request budget                                  |
+| `retry`                   | `false`              | HTTP retries; `0..10` means additional retry count policy                |
+| `hardThreshold`           | `0.8`                | At or above this confidence, expose only the selected tool               |
+| `softThreshold`           | `0.55`               | At or above this confidence, expose the top-K tools                      |
+| `doneThreshold`           | `0.7`                | Independent probability required before removing all tools               |
+| `topK`                    | `3`                  | Shortlist size in the medium-confidence band                             |
+| `minTools`                | `2`                  | Skip Jev when the catalog is already smaller than this                   |
+| `maxToolDescriptionChars` | `900`                | Bound the description/schema summary sent per tool                       |
+| `debug`                   | `false`              | Emit routing metadata without prompts, args, results, or credentials     |
+| `modelOptions`            | `{}`                 | Provider-ID keyed OpenCode options applied only after successful routing |
 
 `softThreshold` must be less than or equal to `hardThreshold`. Unknown configuration keys are
 rejected so typos do not silently change routing behavior.
@@ -222,9 +222,9 @@ tool-selection reasoning after successful routing, opt in explicitly per provide
 {
   "modelOptions": {
     "openai": {
-      "reasoningEffort": "low"
-    }
-  }
+      "reasoningEffort": "low",
+    },
+  },
 }
 ```
 
