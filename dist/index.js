@@ -3,6 +3,7 @@ import { Answer, Duration, ProviderError, Question, Questions, TypeSafe } from "
 import { Plugin } from "@opencode/plugin";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import * as SystemOne from "@nitoba/questions/providers/system-one";
 import * as Vercel from "@nitoba/questions/providers/vercel";
 //#region src/config.ts
 const probability = z.number().finite().min(0).max(1);
@@ -14,7 +15,11 @@ const optionsSchema = z.object({
 		"shortlist",
 		"strict"
 	]).default("shortlist"),
-	provider: z.enum(["typesafe", "vercel"]).default("typesafe"),
+	provider: z.enum([
+		"typesafe",
+		"vercel",
+		"openrouter"
+	]).default("typesafe"),
 	apiKey: z.string().min(1).optional(),
 	apiKeyEnv: environmentVariable.optional(),
 	model: z.string().min(1).optional(),
@@ -71,14 +76,26 @@ const DEFAULT_CONFIG = Object.freeze({
 });
 function parseConfig(input) {
 	const parsed = optionsSchema.parse(input ?? {});
-	const defaultApiKeyEnv = parsed.provider === "vercel" ? "AI_GATEWAY_API_KEY" : "TYPESAFE_API_KEY";
-	const model = parsed.model ?? (parsed.provider === "vercel" ? "typesafe-ai/jev" : "jev-latest");
+	const defaults = {
+		typesafe: {
+			apiKeyEnv: "TYPESAFE_API_KEY",
+			model: "jev-latest"
+		},
+		vercel: {
+			apiKeyEnv: "AI_GATEWAY_API_KEY",
+			model: "typesafe-ai/jev"
+		},
+		openrouter: {
+			apiKeyEnv: "OPENROUTER_API_KEY",
+			model: "typesafe/jev-1.13"
+		}
+	}[parsed.provider];
 	return {
 		mode: parsed.mode,
 		provider: parsed.provider,
 		...parsed.apiKey === void 0 ? {} : { apiKey: parsed.apiKey },
-		...parsed.apiKey !== void 0 ? {} : { apiKeyEnv: parsed.apiKeyEnv ?? defaultApiKeyEnv },
-		model,
+		...parsed.apiKey !== void 0 ? {} : { apiKeyEnv: parsed.apiKeyEnv ?? defaults.apiKeyEnv },
+		model: parsed.model ?? defaults.model,
 		...parsed.baseURL === void 0 ? {} : { baseURL: parsed.baseURL },
 		timeout: parsed.timeout,
 		retry: parsed.retry,
@@ -608,6 +625,11 @@ function createDecisionModel(config, apiKey) {
 		retry: config.retry
 	};
 	if (config.provider === "vercel") return Vercel.create(common);
+	if (config.provider === "openrouter") return SystemOne.create({
+		...common,
+		name: "OpenRouter",
+		baseURL: config.baseURL ?? "https://openrouter.ai/api/v1"
+	});
 	return TypeSafe.create(common);
 }
 //#endregion

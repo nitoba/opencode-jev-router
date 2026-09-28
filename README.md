@@ -119,6 +119,12 @@ export TYPESAFE_API_KEY="..."
 export AI_GATEWAY_API_KEY="..."
 ```
 
+### OpenRouter
+
+```sh
+export OPENROUTER_API_KEY="..."
+```
+
 Install the plugin:
 
 ```sh
@@ -174,6 +180,33 @@ route.
 ```
 
 For Vercel, `baseURL` and `model` can be omitted; those values are the defaults.
+
+### OpenRouter / Jev
+
+OpenRouter's [System One endpoint](https://openrouter.ai/docs/guides/community/typesafe-sdk)
+uses the existing `@nitoba/questions` transport and bills requests to your OpenRouter account.
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": [
+    {
+      "package": "github:nitoba/opencode-jev-router",
+      "options": {
+        "provider": "openrouter",
+        "apiKeyEnv": "OPENROUTER_API_KEY",
+        "model": "typesafe/jev-1.13",
+        "mode": "observe",
+        "debug": true,
+      },
+    },
+  ],
+}
+```
+
+For OpenRouter, `apiKeyEnv` and `model` above are the defaults. The default `baseURL` is
+`https://openrouter.ai/api/v1`; Questions appends `/systemone`, so requests go to
+`https://openrouter.ai/api/v1/systemone`. Custom proxies must support that protocol.
 
 `apiKeyEnv` is the name of an environment variable. If you intentionally want to store the credential in the OpenCode config, use `apiKey` instead. Do not use both. Environment variables remain the recommended option for secrets.
 
@@ -236,23 +269,23 @@ operational state and tool outcomes.
 
 ### Options
 
-| Option                    | Default           | Meaning                                                        |
-| ------------------------- | ----------------- | -------------------------------------------------------------- |
-| `provider`                | `"typesafe"`      | `typesafe` for System One or `vercel` for Vercel Evaluation V4 |
-| `apiKey`                  | unset             | Inline provider credential; never emitted to debug logs        |
-| `apiKeyEnv`               | provider-specific | Name of the environment variable containing the credential     |
-| `model`                   | provider-specific | TypeSafe: `jev-latest`; Vercel: `typesafe-ai/jev`              |
-| `baseURL`                 | provider default  | Custom endpoint using the selected provider protocol           |
-| `mode`                    | `"shortlist"`     | `observe`, `shortlist`, or `strict`                            |
-| `timeout`                 | `"2 seconds"`     | Total Questions/provider request budget                        |
-| `retry`                   | `false`           | HTTP retry policy                                              |
-| `hardThreshold`           | `0.8`             | Expose only the selected tool at or above this confidence      |
-| `softThreshold`           | `0.55`            | Expose the top-K tools at or above this confidence             |
-| `doneThreshold`           | `0.7`             | Evidence required before removing all tools                    |
-| `topK`                    | `3`               | Medium-confidence shortlist size                               |
-| `minTools`                | `2`               | Skip Jev when the catalog is already smaller                   |
-| `maxToolDescriptionChars` | `600`             | Maximum compact description size per tool sent to Jev          |
-| `debug`                   | `false`           | Write sanitized routing events to the project debug log        |
+| Option                    | Default           | Meaning                                                                            |
+| ------------------------- | ----------------- | ---------------------------------------------------------------------------------- |
+| `provider`                | `"typesafe"`      | `typesafe` or `openrouter` for System One; `vercel` for Evaluation V4              |
+| `apiKey`                  | unset             | Inline provider credential; never emitted to debug logs                            |
+| `apiKeyEnv`               | provider-specific | Name of the environment variable containing the credential                         |
+| `model`                   | provider-specific | TypeSafe: `jev-latest`; Vercel: `typesafe-ai/jev`; OpenRouter: `typesafe/jev-1.13` |
+| `baseURL`                 | provider default  | Custom endpoint using the selected provider protocol                               |
+| `mode`                    | `"shortlist"`     | `observe`, `shortlist`, or `strict`                                                |
+| `timeout`                 | `"2 seconds"`     | Total Questions/provider request budget                                            |
+| `retry`                   | `false`           | HTTP retry policy                                                                  |
+| `hardThreshold`           | `0.8`             | Expose only the selected tool at or above this confidence                          |
+| `softThreshold`           | `0.55`            | Expose the top-K tools at or above this confidence                                 |
+| `doneThreshold`           | `0.7`             | Evidence required before removing all tools                                        |
+| `topK`                    | `3`               | Medium-confidence shortlist size                                                   |
+| `minTools`                | `2`               | Skip Jev when the catalog is already smaller                                       |
+| `maxToolDescriptionChars` | `600`             | Maximum compact description size per tool sent to Jev                              |
+| `debug`                   | `false`           | Write sanitized routing events to the project debug log                            |
 
 `softThreshold` must be less than or equal to `hardThreshold`. Unknown configuration keys are
 rejected so typos do not silently change routing behavior.
@@ -326,8 +359,8 @@ rate-limited provider does not create log spam.
 
 The original tool catalog is left untouched when:
 
-- the TypeSafe key is missing;
-- Jev/TypeSafe times out or returns an error;
+- the selected provider's key is missing;
+- the provider times out or returns an error;
 - the provider is inside a 429 cooldown window;
 - validated evidence cannot be produced;
 - confidence is below `softThreshold` in `shortlist` mode;

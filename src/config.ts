@@ -13,7 +13,7 @@ const environmentVariable = z
 const optionsSchema = z
   .object({
     mode: z.enum(["observe", "shortlist", "strict"]).default("shortlist"),
-    provider: z.enum(["typesafe", "vercel"]).default("typesafe"),
+    provider: z.enum(["typesafe", "vercel", "openrouter"]).default("typesafe"),
     apiKey: z.string().min(1).optional(),
     apiKeyEnv: environmentVariable.optional(),
     model: z.string().min(1).optional(),
@@ -94,15 +94,18 @@ export const DEFAULT_CONFIG = Object.freeze({
 
 export function parseConfig(input: unknown): RouterConfig {
   const parsed = optionsSchema.parse(input ?? {});
-  const defaultApiKeyEnv = parsed.provider === "vercel" ? "AI_GATEWAY_API_KEY" : "TYPESAFE_API_KEY";
-  const model = parsed.model ?? (parsed.provider === "vercel" ? "typesafe-ai/jev" : "jev-latest");
+  const defaults = {
+    typesafe: { apiKeyEnv: "TYPESAFE_API_KEY", model: "jev-latest" },
+    vercel: { apiKeyEnv: "AI_GATEWAY_API_KEY", model: "typesafe-ai/jev" },
+    openrouter: { apiKeyEnv: "OPENROUTER_API_KEY", model: "typesafe/jev-1.13" },
+  }[parsed.provider];
 
   return {
     mode: parsed.mode,
     provider: parsed.provider,
     ...(parsed.apiKey === undefined ? {} : { apiKey: parsed.apiKey }),
-    ...(parsed.apiKey !== undefined ? {} : { apiKeyEnv: parsed.apiKeyEnv ?? defaultApiKeyEnv }),
-    model,
+    ...(parsed.apiKey !== undefined ? {} : { apiKeyEnv: parsed.apiKeyEnv ?? defaults.apiKeyEnv }),
+    model: parsed.model ?? defaults.model,
     ...(parsed.baseURL === undefined ? {} : { baseURL: parsed.baseURL }),
     timeout: parsed.timeout,
     retry: parsed.retry,

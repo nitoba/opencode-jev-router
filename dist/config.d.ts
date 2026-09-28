@@ -7,6 +7,7 @@ declare const optionsSchema: z.ZodObject<{
         strict: "strict";
     }>>;
     provider: z.ZodDefault<z.ZodEnum<{
+        openrouter: "openrouter";
         typesafe: "typesafe";
         vercel: "vercel";
     }>>;
