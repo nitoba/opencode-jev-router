@@ -10,7 +10,7 @@ import type {
 export const RESPOND_TO_USER = "__jev_router_respond_to_user__" as const;
 
 export type RouterMode = "observe" | "shortlist" | "strict";
-export type RouterProvider = "typesafe" | "vercel";
+export type RouterProvider = "typesafe" | "vercel" | "openrouter";
 
 export interface ToolDefinition {
   readonly description: string;

@@ -52,6 +52,27 @@ describe("parseConfig", () => {
     ).toBe("https://ai-gateway.vercel.sh/v4/ai");
   });
 
+  test("uses OpenRouter Jev defaults", () => {
+    const config = parseConfig({ provider: "openrouter" });
+    expect(config.provider).toBe("openrouter");
+    expect(config.apiKeyEnv).toBe("OPENROUTER_API_KEY");
+    expect(config.model).toBe("typesafe/jev-1.13");
+    expect(config.baseURL).toBeUndefined();
+  });
+
+  test("preserves OpenRouter credential, model and endpoint overrides", () => {
+    const config = parseConfig({
+      provider: "openrouter",
+      apiKeyEnv: "CUSTOM_OPENROUTER_KEY",
+      model: "~typesafe/jev-latest",
+      baseURL: "https://proxy.example/api/v1",
+    });
+    expect(config.apiKeyEnv).toBe("CUSTOM_OPENROUTER_KEY");
+    expect(config.model).toBe("~typesafe/jev-latest");
+    expect(config.baseURL).toBe("https://proxy.example/api/v1");
+    expect(parseConfig({ provider: "openrouter", apiKey: "test-key" }).apiKeyEnv).toBeUndefined();
+  });
+
   test("rejects the OpenAI-compatible Vercel /v1 route", () => {
     expect(() =>
       parseConfig({
